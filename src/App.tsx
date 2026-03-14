@@ -1,30 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle,
+  Activity,
   Ambulance,
+  BedDouble,
   Building2,
   Clock3,
-  Download,
-  Filter,
-  HeartPulse,
-  LogOut,
-  MapPinned,
-  RefreshCcw,
-  Shield,
-  Siren,
-  Workflow,
-  Moon, 
+  Moon,
+  ShieldCheck,
   SunMedium,
+  TrendingUp,
+  Workflow,
 } from 'lucide-react';
+
 import { LoginScreen } from './components/LoginScreen';
 import { StatusPill } from './components/StatusPill';
-import { StatCard } from './components/StatCard';
-import { TrendChart } from './components/TrendChart';
 import { CaliforniaCapacityMap } from './components/CaliforniaCapacityMap';
+import { IncidentCoordination } from './components/IncidentCoordination';
+import { InteroperabilityFeedHealth } from './components/InteroperabilityFeedHealth';
+import { ScenarioSimulation } from './components/ScenarioSimulation';
 
 import {
   alerts,
-  bedTypes,
   emsMetrics,
   eventFeed,
   historicalTrend,
@@ -37,114 +33,327 @@ import {
   type RegionKey,
 } from './lib/data';
 
-type RegionFilter = 'All' | RegionKey;
+type ThemeMode = 'dark' | 'light';
+type ScenarioMode = 'normal' | 'surge' | 'degraded' | 'incident';
 
-type StatusFilter = 'All' | HospitalRecord['status'];
+type RegionFilter =
+  | 'All'
+  | 'Northern'
+  | 'Bay Area'
+  | 'Central'
+  | 'Los Angeles'
+  | 'Inland Empire'
+  | 'San Diego';
 
-function formatPercent(available: number, staffed: number) {
-  return `${Math.round((available / staffed) * 100)}%`;
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('en-US').format(value);
 }
 
-function totalByType(record: HospitalRecord, bedType: BedType) {
-  const item = record.beds.find((bed) => bed.type === bedType);
-  return item?.available ?? 0;
+function getStatusTone(status: string): 'green' | 'amber' | 'red' | 'slate' {
+  if (status === 'Normal') return 'green';
+  if (status === 'Surge') return 'amber';
+  return 'red';
+}
+
+function getAlertTone(level: string): 'green' | 'amber' | 'red' | 'blue' | 'slate' {
+  if (level === 'critical') return 'red';
+  if (level === 'warning') return 'amber';
+  if (level === 'info') return 'blue';
+  return 'slate';
 }
 
 export default function App() {
-  const [authenticated, setAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('hbeds-theme');
+    return saved === 'light' ? 'light' : 'dark';
+  });
+
+  const [scenario, setScenario] = useState<ScenarioMode>('normal');
   const [region, setRegion] = useState<RegionFilter>('All');
   const [bedType, setBedType] = useState<BedType | 'All'>('All');
-  const [status, setStatus] = useState<StatusFilter>('All');
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-  const saved = localStorage.getItem('hbeds-theme');
-  return saved === 'light' ? 'light' : 'dark';
-});
 
   useEffect(() => {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('hbeds-theme', theme);
-}, [theme]);
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('hbeds-theme', theme);
+  }, [theme]);
+
+  const scenarioHospitals = useMemo(() => {
+    return hospitals.map((hospital) => {
+      if (scenario === 'normal') return hospital;
+
+      if (scenario === 'surge') {
+        return {
+          ...hospital,
+          status: hospital.status === 'Normal' ? 'Surge' : hospital.status,
+          ambulanceQueue: hospital.ambulanceQueue + 3,
+          emsWallTimeMinutes: hospital.emsWallTimeMinutes + 12,
+          boardingPatients: hospital.boardingPatients + 6,
+          notes: `${hospital.notes} Surge scenario applied for demo.`,
+          beds: hospital.beds.map((bed) => {
+            const nextAvailable = Math.max(0, Math.floor(bed.available * 0.55));
+            return {
+              ...bed,
+              available: nextAvailable,
+              occupied: bed.staffed - nextAvailable,
+            };
+          }),
+        };
+      }
+
+      if (scenario === 'degraded') {
+        return {
+          ...hospital,
+          ambulanceQueue: hospital.ambulanceQueue + 1,
+          emsWallTimeMinutes: hospital.emsWallTimeMinutes + 8,
+          notes: `${hospital.notes} Feed degradation and validation delay simulated.`,
+        };
+      }
+
+      if (scenario === 'incident') {
+        return {
+          ...hospital,
+          status: hospital.status === 'Normal' ? 'Internal Disaster' : hospital.status,
+          ambulanceQueue: hospital.ambulanceQueue + 4,
+          emsWallTimeMinutes: hospital.emsWallTimeMinutes + 15,
+          boardingPatients: hospital.boardingPatients + 8,
+          notes: `${hospital.notes} Incident command mode active.`,
+          beds: hospital.beds.map((bed) => {
+            const nextAvailable = Math.max(0, Math.floor(bed.available * 0.45));
+            return {
+              ...bed,
+              available: nextAvailable,
+              occupied: bed.staffed - nextAvailable,
+            };
+          }),
+        };
+      }
+
+      return hospital;
+    });
+  }, [scenario]);
 
   const filteredHospitals = useMemo(() => {
-    return hospitals.filter((hospital) => {
-      const regionPass = region === 'All' || hospital.region === region;
-      const statusPass = status === 'All' || hospital.status === status;
-      const bedPass = bedType === 'All' || totalByType(hospital, bedType) >= 0;
-      return regionPass && statusPass && bedPass;
+    return scenarioHospitals.filter((hospital) => {
+      const regionMatch = region === 'All' || hospital.region === region;
+      return regionMatch;
     });
-  }, [region, status, bedType]);
+  }, [scenarioHospitals, region]);
 
-  const summary = summarizeHospitals(filteredHospitals);
+  const scenarioAlerts = useMemo(() => {
+    const baseAlerts = [...alerts];
 
-  if (!authenticated) {
-    return <LoginScreen onLogin={() => setAuthenticated(true)} />;
+    if (scenario === 'surge') {
+      return [
+        {
+          id: 'scenario-surge',
+          level: 'warning',
+          title: 'Regional surge activated',
+          detail:
+            'ED boarding, ICU saturation, and ambulance queue times are elevated across multiple facilities.',
+          time: 'Now',
+        },
+        ...baseAlerts,
+      ];
+    }
+
+    if (scenario === 'degraded') {
+      return [
+        {
+          id: 'scenario-degraded',
+          level: 'critical',
+          title: 'Network degradation detected',
+          detail:
+            'One or more facility feeds are delayed. Fallback validation and transport coordination paths are active.',
+          time: 'Now',
+        },
+        ...baseAlerts,
+      ];
+    }
+
+    if (scenario === 'incident') {
+      return [
+        {
+          id: 'scenario-incident',
+          level: 'critical',
+          title: 'Incident mode active',
+          detail:
+            'Command posture elevated. Diversion and high-acuity routing should be coordinated centrally.',
+          time: 'Now',
+        },
+        ...baseAlerts,
+      ];
+    }
+
+    return baseAlerts;
+  }, [scenario]);
+
+  const statewideTotals = useMemo(() => {
+    let staffed = 0;
+    let available = 0;
+    let boarding = 0;
+    let ambulanceQueue = 0;
+    let wallTimeTotal = 0;
+
+    filteredHospitals.forEach((hospital) => {
+      boarding += hospital.boardingPatients;
+      ambulanceQueue += hospital.ambulanceQueue;
+      wallTimeTotal += hospital.emsWallTimeMinutes;
+
+      hospital.beds.forEach((bed) => {
+        if (bedType === 'All' || bed.type === bedType) {
+          staffed += bed.staffed;
+          available += bed.available;
+        }
+      });
+    });
+
+    const avgWallTime = filteredHospitals.length
+      ? Math.round(wallTimeTotal / filteredHospitals.length)
+      : 0;
+
+    const availablePct = staffed ? Math.round((available / staffed) * 100) : 0;
+
+    return {
+      staffed,
+      available,
+      availablePct,
+      boarding,
+      ambulanceQueue,
+      avgWallTime,
+    };
+  }, [filteredHospitals, bedType]);
+
+  const facilityCount = filteredHospitals.length;
+  const surgeFacilities = filteredHospitals.filter((h) => h.status === 'Surge').length;
+  const diversionFacilities = filteredHospitals.filter(
+    (h) => h.status === 'Diversion' || h.status === 'Internal Disaster'
+  ).length;
+
+  const chartPoints = useMemo(() => {
+    const base =
+      scenario === 'incident'
+        ? [88, 84, 79, 73, 68, 64, 61]
+        : scenario === 'surge'
+          ? [90, 87, 81, 76, 72, 69, 66]
+          : scenario === 'degraded'
+            ? [91, 89, 85, 83, 80, 78, 76]
+            : [92, 90, 88, 86, 84, 83, 82];
+
+    return base;
+  }, [scenario]);
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
   }
 
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <section className="topbar">
         <div>
           <div className="eyebrow operational">
-            <Shield size={16} />
-            Operational Engine · Secure Demo Session
+            <ShieldCheck size={16} />
+            Secure Session Active · California HBEDS Demo
           </div>
-          <h1>Hospital Bed and Emergency Medical Services Data System</h1>
+          <h1>HBEDS Operational Engine</h1>
           <p className="subtitle">
-            Enterprise-grade command visibility for hospital operators, CDPH administrators, and EMS incident leaders.
+            Real-time staffed bed visibility, EMS coordination, and operational reporting for
+            hospitals, public health leadership, and incident command teams.
           </p>
         </div>
+
         <div className="topbar-actions">
-          <button className="ghost-btn"><RefreshCcw size={16} /> Sync now</button>
-          <button className="ghost-btn"><Download size={16} /> Export historical data</button>
-          <button className="ghost-btn" onClick={() => setAuthenticated(false)}><LogOut size={16} /> Logout</button>
-          <button  className="theme-toggle" onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-  aria-label="Toggle color mode"
-  type="button"
->
-  {theme === 'dark' ? <SunMedium size={16} /> : <Moon size={16} />}
-  <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-</button>
+          <button
+            className="theme-toggle"
+            type="button"
+            onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+            aria-label="Toggle color mode"
+          >
+            {theme === 'dark' ? <SunMedium size={16} /> : <Moon size={16} />}
+            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+          </button>
+
+          <button className="secondary-btn" type="button">
+            Export summary
+          </button>
         </div>
-      </header>
+      </section>
 
       <section className="hero-grid">
         <div className="hero-panel glass">
-          <div className="hero-status-row">
-            <StatusPill tone="green">24/7 real-time dashboard</StatusPill>
-            <StatusPill tone="amber">15-minute CDPH cadence</StatusPill>
-            <StatusPill tone="slate">NHSN sync aware</StatusPill>
+          <div className="section-head compact">
+            <div>
+              <h3>
+                <TrendingUp size={18} />
+                Statewide Operational Snapshot
+              </h3>
+              <p>
+                Capacity and transport pressure across the currently filtered hospital set.
+              </p>
+            </div>
+            <div className="hero-status-row">
+              <StatusPill tone="green">{facilityCount} facilities in scope</StatusPill>
+              <StatusPill tone="amber">{surgeFacilities} surge</StatusPill>
+              <StatusPill tone="red">{diversionFacilities} diversion / incident</StatusPill>
+            </div>
           </div>
+
           <div className="hero-metrics">
-            <StatCard label="Available staffed beds" value={String(summary.totalAvailableBeds)} helper={`${summary.totalStaffedBeds} staffed beds in filtered view`} tone="green" />
-            <StatCard label="Occupied beds" value={String(summary.totalOccupiedBeds)} helper="Operational utilization across all tracked bed types" tone="blue" />
-            <StatCard label="Median EMS wall time" value={`${summary.medianWallTime} min`} helper="Helps incident command spot transfer pressure" tone="amber" />
-            <StatCard label="Diversion / surge sites" value={`${summary.hospitalsInDiversion} / ${summary.hospitalsInSurge}`} helper="Diversion first, surge second" tone="red" />
+            <div className="stat-card tone-green">
+              <div className="stat-label">Available beds</div>
+              <div className="stat-value">{formatNumber(statewideTotals.available)}</div>
+              <div className="stat-helper">
+                {statewideTotals.availablePct}% of staffed capacity available
+              </div>
+            </div>
+
+            <div className="stat-card tone-blue">
+              <div className="stat-label">Staffed beds</div>
+              <div className="stat-value">{formatNumber(statewideTotals.staffed)}</div>
+              <div className="stat-helper">Reporting on current bed type filter</div>
+            </div>
+
+            <div className="stat-card tone-amber">
+              <div className="stat-label">Ambulance queue</div>
+              <div className="stat-value">{formatNumber(statewideTotals.ambulanceQueue)}</div>
+              <div className="stat-helper">Queued transports across in-scope facilities</div>
+            </div>
+
+            <div className="stat-card tone-red">
+              <div className="stat-label">Avg EMS wall time</div>
+              <div className="stat-value">{statewideTotals.avgWallTime}m</div>
+              <div className="stat-helper">Average time-to-offload under active conditions</div>
+            </div>
           </div>
         </div>
 
-        <div className="sync-card panel">
+        <div className="sync-card glass">
           <div className="section-head compact">
             <div>
-              <h3>Compliance Snapshot</h3>
-              <p>Modeled directly from the uploaded RFP requirements.</p>
+              <h3>
+                <Clock3 size={18} />
+                Reporting & compliance
+              </h3>
+              <p>Demo alignment to HBEDS reporting, onboarding, and transmission workflows.</p>
             </div>
           </div>
+
           <div className="mini-grid">
             <div>
-              <span className="mini-label">SSO + MFA</span>
-              <strong>Simulated</strong>
+              <span className="mini-label">CDPH cadence</span>
+              <strong>15-minute target</strong>
             </div>
             <div>
-              <span className="mini-label">CDC/NHSN feed</span>
-              <strong>12:00 / pending 24:00</strong>
+              <span className="mini-label">NHSN cadence</span>
+              <strong>Twice daily minimum</strong>
             </div>
             <div>
-              <span className="mini-label">CDPH API push</span>
-              <strong>Every 15 minutes</strong>
+              <span className="mini-label">Auth model</span>
+              <strong>SSO + MFA</strong>
             </div>
             <div>
-              <span className="mini-label">Access provisioning</span>
-              <strong>&lt; 24 hours</strong>
+              <span className="mini-label">Historical exports</span>
+              <strong>Enabled</strong>
             </div>
           </div>
         </div>
@@ -153,98 +362,139 @@ export default function App() {
       <section className="filters panel">
         <div className="section-head compact">
           <div>
-            <h3><Filter size={18} /> Operational Filters</h3>
-            <p>Hospital, region, bed type, and operational status filtering aligned with the RFP.</p>
+            <h3>
+              <Activity size={18} />
+              Operational filters
+            </h3>
+            <p>Slice the network by region and bed type to inspect live operational posture.</p>
           </div>
         </div>
+
         <div className="filter-row">
           <label>
             Region
-            <select value={region} onChange={(e) => setRegion(e.target.value as RegionFilter)}>
-              <option>All</option>
-              <option>Northern</option>
-              <option>Bay Area</option>
-              <option>Central</option>
-              <option>Los Angeles</option>
-              <option>Inland Empire</option>
-              <option>San Diego</option>
+            <select
+              value={region}
+              onChange={(e) => setRegion(e.target.value as RegionFilter)}
+            >
+              <option value="All">All regions</option>
+              <option value="Northern">Northern</option>
+              <option value="Bay Area">Bay Area</option>
+              <option value="Central">Central</option>
+              <option value="Los Angeles">Los Angeles</option>
+              <option value="Inland Empire">Inland Empire</option>
+              <option value="San Diego">San Diego</option>
             </select>
           </label>
+
           <label>
             Bed type
-            <select value={bedType} onChange={(e) => setBedType(e.target.value as BedType | 'All')}>
-              <option>All</option>
-              {bedTypes.map((type) => <option key={type}>{type}</option>)}
+            <select
+              value={bedType}
+              onChange={(e) => setBedType(e.target.value as BedType | 'All')}
+            >
+              <option value="All">All bed types</option>
+              <option value="Adult ICU">Adult ICU</option>
+              <option value="Medical Surgical">Medical Surgical</option>
+              <option value="Emergency Department">Emergency Department</option>
+              <option value="Pediatric ICU">Pediatric ICU</option>
+              <option value="NICU">NICU</option>
+              <option value="Psych">Psych</option>
+              <option value="Burn">Burn</option>
+              <option value="Isolation">Isolation</option>
             </select>
           </label>
-          <label>
-            Hospital status
-            <select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
-              <option>All</option>
-              <option>Normal</option>
-              <option>Surge</option>
-              <option>Diversion</option>
-              <option>Internal Disaster</option>
-            </select>
-          </label>
+
           <div className="filter-note">
-            <Clock3 size={16} /> Last statewide refresh: 13:47 PT
+            <ShieldCheck size={16} />
+            Filters update map, facility table, and coordination recommendations.
           </div>
         </div>
       </section>
 
+      {scenario !== 'normal' && (
+        <section className={`panel scenario-banner scenario-${scenario}`}>
+          <strong>
+            {scenario === 'surge' && 'Surge scenario active'}
+            {scenario === 'degraded' && 'Network degradation scenario active'}
+            {scenario === 'incident' && 'Incident mode active'}
+          </strong>
+          <span>
+            {scenario === 'surge' &&
+              'Available capacity has been reduced for demo purposes, with elevated EMS queue and boarding pressure.'}
+            {scenario === 'degraded' &&
+              'Feed latency and facility validation are degraded. Interoperability panels show reduced confidence.'}
+            {scenario === 'incident' &&
+              'Incident command mode is active, with elevated acuity routing and reduced available capacity.'}
+          </span>
+        </section>
+      )}
+
       <section className="main-grid">
         <div className="left-stack">
-        <CaliforniaCapacityMap hospitals={filteredHospitals} selectedBedType={bedType}/>
+          <CaliforniaCapacityMap hospitals={filteredHospitals} selectedBedType={bedType} />
+
           <div className="panel">
             <div className="section-head">
               <div>
-                <h3><Building2 size={18} /> Facility Operational View</h3>
-                <p>Real-time staffed-bed availability, status, EMS pressure, and reporting health.</p>
+                <h3>
+                  <Building2 size={18} />
+                  Facility Operational View
+                </h3>
+                <p>
+                  Real-time staffed-bed availability, status, EMS pressure, and reporting health.
+                </p>
               </div>
               <StatusPill tone="slate">{filteredHospitals.length} facilities in scope</StatusPill>
             </div>
+
             <div className="hospital-table-wrap">
               <table className="hospital-table">
                 <thead>
                   <tr>
                     <th>Facility</th>
-                    <th>Region</th>
                     <th>Status</th>
+                    <th>Reporting</th>
                     <th>Available / Staffed</th>
+                    <th>Boarding</th>
                     <th>EMS</th>
-                    <th>Integration</th>
                     <th>Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredHospitals.map((hospital) => {
-                    const staffed = hospital.beds.reduce((sum, bed) => sum + bed.staffed, 0);
-                    const available = hospital.beds.reduce((sum, bed) => sum + bed.available, 0);
-                    const tone = hospital.status === 'Diversion' || hospital.status === 'Internal Disaster'
-                      ? 'red'
-                      : hospital.status === 'Surge'
-                        ? 'amber'
-                        : 'green';
+                    const relevantBeds =
+                      bedType === 'All'
+                        ? hospital.beds
+                        : hospital.beds.filter((bed) => bed.type === bedType);
+
+                    const staffed = relevantBeds.reduce((sum, bed) => sum + bed.staffed, 0);
+                    const available = relevantBeds.reduce((sum, bed) => sum + bed.available, 0);
+
                     return (
                       <tr key={hospital.id}>
                         <td>
                           <div className="facility-title">{hospital.name}</div>
-                          <div className="facility-sub">{hospital.county} County · Trauma {hospital.traumaLevel}</div>
-                        </td>
-                        <td>{hospital.region}</td>
-                        <td><StatusPill tone={tone}>{hospital.status}</StatusPill></td>
-                        <td>
-                          <strong>{available}</strong>
-                          <span className="muted"> / {staffed} · {formatPercent(available, staffed)}</span>
+                          <div className="facility-sub">
+                            {hospital.county} County · {hospital.region} · Trauma {hospital.traumaLevel}
+                          </div>
                         </td>
                         <td>
-                          <div>{hospital.emsWallTimeMinutes} min wall time</div>
-                          <span className="muted">{hospital.ambulanceQueue} units queued</span>
+                          <StatusPill tone={getStatusTone(hospital.status)}>{hospital.status}</StatusPill>
                         </td>
                         <td>
                           <div>{hospital.reportingMethod}</div>
-                          <span className="muted">{hospital.ehr}</span>
+                          <div className="muted">{hospital.ehr}</div>
+                        </td>
+                        <td>
+                          <strong>
+                            {available} / {staffed}
+                          </strong>
+                        </td>
+                        <td>{hospital.boardingPatients}</td>
+                        <td>
+                          <div>{hospital.emsWallTimeMinutes} min</div>
+                          <div className="muted">{hospital.ambulanceQueue} queued</div>
                         </td>
                         <td className="notes-cell">{hospital.notes}</td>
                       </tr>
@@ -255,113 +505,98 @@ export default function App() {
             </div>
           </div>
 
-          <TrendChart data={historicalTrend} />
-
-          <div className="panel">
+          <div className="chart-card">
             <div className="section-head">
               <div>
-                <h3><Workflow size={18} /> RFP-to-Product Alignment</h3>
-                <p>What this demo visibly covers from the uploaded solicitation.</p>
+                <h3>
+                  <BedDouble size={18} />
+                  Capacity trend outlook
+                </h3>
+                <p>Illustrative availability trend across the current scenario.</p>
+              </div>
+              <div className="legend-group">
+                <span>
+                  <i className="legend-dot blue" />
+                  Available capacity
+                </span>
+                <span>
+                  <i className="legend-dot amber" />
+                  Stress threshold
+                </span>
               </div>
             </div>
-            <div className="alignment-grid">
-              {rfpAlignment.map((item) => (
-                <article className="alignment-card" key={item.title}>
-                  <h4>{item.title}</h4>
-                  <p>{item.summary}</p>
-                </article>
-              ))}
-            </div>
+
+            <svg
+              className="chart-svg"
+              viewBox="0 0 720 220"
+              preserveAspectRatio="xMidYMid meet"
+              role="img"
+              aria-label="Trend chart"
+            >
+              <line x1="40" y1="170" x2="680" y2="170" stroke="var(--line)" />
+              <line x1="40" y1="40" x2="40" y2="170" stroke="var(--line)" />
+
+              <line
+                x1="40"
+                y1="95"
+                x2="680"
+                y2="95"
+                stroke="var(--amber)"
+                strokeDasharray="6 6"
+                opacity="0.7"
+              />
+
+              {chartPoints.map((point, index) => {
+                const x = 40 + index * 106;
+                const y = 170 - point;
+                const next = chartPoints[index + 1];
+
+                return (
+                  <g key={index}>
+                    {next !== undefined && (
+                      <line
+                        x1={x}
+                        y1={y}
+                        x2={40 + (index + 1) * 106}
+                        y2={170 - next}
+                        stroke="var(--blue)"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                      />
+                    )}
+                    <circle cx={x} cy={y} r="5" fill="var(--blue)" />
+                    <text x={x} y="192" textAnchor="middle" className="chart-label">
+                      H{index + 1}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
           </div>
         </div>
 
         <div className="right-stack">
-          <div className="panel alert-panel">
+          <div className="panel">
             <div className="section-head compact">
               <div>
-                <h3><Siren size={18} /> Live Alert Ribbon</h3>
-                <p>Operational color language for high-stress environments.</p>
+                <h3>
+                  <Activity size={18} />
+                  Live alert stream
+                </h3>
+                <p>Critical, warning, and informational operational updates.</p>
               </div>
             </div>
+
             <div className="alert-list">
-              {alerts.map((alert) => (
-                <div className={`alert-item ${alert.level}`} key={alert.id}>
+              {scenarioAlerts.map((alert) => (
+                <div key={alert.id} className={`alert-item ${alert.level}`}>
                   <div>
                     <div className="alert-title">{alert.title}</div>
                     <p>{alert.detail}</p>
                   </div>
-                  <span className="alert-time">{alert.time}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="section-head compact">
-              <div>
-                <h3><Ambulance size={18} /> EMS Metrics</h3>
-                <p>Designed for field operations and county coordination.</p>
-              </div>
-            </div>
-            <div className="metric-list">
-              {emsMetrics.map((metric) => (
-                <div className="metric-item" key={metric.label}>
-                  <div>
-                    <span className="metric-label">{metric.label}</span>
-                    <strong className="metric-value">{metric.value}</strong>
-                  </div>
-                  <StatusPill tone={metric.tone === 'good' ? 'green' : metric.tone === 'warn' ? 'amber' : 'red'}>
-                    {metric.trend}
-                  </StatusPill>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="section-head compact">
-              <div>
-                <h3><HeartPulse size={18} /> Bed Type Distribution</h3>
-                <p>Modeled from the mandatory bed-visibility requirement.</p>
-              </div>
-            </div>
-            <div className="bed-breakdown">
-              {bedTypes.map((type) => {
-                const staffed = filteredHospitals.reduce((sum, hospital) => sum + (hospital.beds.find((bed) => bed.type === type)?.staffed ?? 0), 0);
-                const available = filteredHospitals.reduce((sum, hospital) => sum + (hospital.beds.find((bed) => bed.type === type)?.available ?? 0), 0);
-                const pct = staffed ? Math.round((available / staffed) * 100) : 0;
-                return (
-                  <div className="bed-row" key={type}>
-                    <div>
-                      <strong>{type}</strong>
-                      <span>{available} available of {staffed} staffed</span>
-                    </div>
-                    <div className="bar-shell">
-                      <div className="bar-fill" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="section-head compact">
-              <div>
-                <h3><MapPinned size={18} /> Activation & Onboarding</h3>
-                <p>Participation agreements, build milestones, validation, and go-live.</p>
-              </div>
-            </div>
-            <div className="onboarding-list">
-              {onboardingSites.map((site) => (
-                <div className="onboarding-item" key={site.hospital}>
-                  <div>
-                    <strong>{site.hospital}</strong>
-                    <span>{site.owner}</span>
-                  </div>
                   <div className="right-align">
-                    <StatusPill tone={site.phase === 'Live' ? 'green' : site.phase === 'Validation' ? 'amber' : 'slate'}>{site.phase}</StatusPill>
-                    <span className="muted">ETA: {site.eta}</span>
+                    <StatusPill tone={getAlertTone(alert.level)}>{alert.level}</StatusPill>
+                    <span className="alert-time">{alert.time}</span>
                   </div>
                 </div>
               ))}
@@ -371,24 +606,141 @@ export default function App() {
           <div className="panel">
             <div className="section-head compact">
               <div>
-                <h3><AlertTriangle size={18} /> Event Stream</h3>
-                <p>Fast scan operational log for command staff.</p>
+                <h3>
+                  <Ambulance size={18} />
+                  EMS metrics
+                </h3>
+                <p>Operational indicators relevant to patient movement and offload pressure.</p>
               </div>
             </div>
-            <div className="feed-list">
-              {eventFeed.map((item) => (
-                <div className="feed-item" key={item.id}>
-                  <span className="feed-time">{item.time}</span>
+
+            <div className="metric-list">
+              {emsMetrics.map((item) => (
+                <div className="metric-item" key={item.label}>
                   <div>
-                    <strong>{item.category}</strong>
-                    <p>{item.event}</p>
+                    <div className="metric-label">{item.label}</div>
+                    <div className="metric-value">{item.value}</div>
+                    <span>{item.trend}</span>
                   </div>
+
+                  <StatusPill
+                    tone={item.tone === 'good' ? 'green' : item.tone === 'warn' ? 'amber' : 'red'}
+                  >
+                    {item.tone}
+                  </StatusPill>
                 </div>
               ))}
             </div>
           </div>
         </div>
       </section>
-    </div>
+
+      <section className="ops-console-grid">
+        <div className="ops-console-main">
+          <div className="panel">
+            <div className="section-head compact">
+              <div>
+                <h3>
+                  <ShieldCheck size={18} />
+                  Onboarding & validation
+                </h3>
+                <p>Facility activation and feed validation milestones.</p>
+              </div>
+            </div>
+
+            <div className="onboarding-list">
+              {onboardingSites.map((item) => (
+                <div className="onboarding-item" key={item.hospital}>
+                  <div>
+                    <strong>{item.hospital}</strong>
+                    <span>{item.owner}</span>
+                  </div>
+                  <div className="right-align">
+                    <StatusPill
+                      tone={
+                        item.phase === 'Live'
+                          ? 'green'
+                          : item.phase === 'Validation'
+                            ? 'amber'
+                            : 'slate'
+                      }
+                    >
+                      {item.phase}
+                    </StatusPill>
+                    <span className="muted">{item.eta}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="section-head compact">
+              <div>
+                <h3>
+                  <Workflow size={18} />
+                  RFP alignment
+                </h3>
+                <p>Illustrative feature-to-requirement alignment for the demo scope.</p>
+              </div>
+            </div>
+
+            <div className="alignment-grid">
+              {rfpAlignment.map((item) => (
+                <div className="alignment-card" key={item.title}>
+                  <h4>{item.title}</h4>
+                  <p>{item.summary}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <section className="operational-intelligence">
+            <div className="section-head">
+              <div>
+                <h3>
+                  <Workflow size={18} />
+                  Operational Intelligence
+                </h3>
+                <p>Decision support, interoperability confidence, and live command coordination.</p>
+              </div>
+            </div>
+
+            <div className="intelligence-grid">
+              <IncidentCoordination scenario={scenario} />
+              <InteroperabilityFeedHealth scenario={scenario} />
+            </div>
+          </section>
+        </div>
+
+        <aside className="ops-console-side">
+          <div className="panel">
+            <div className="section-head compact">
+              <div>
+                <h3>
+                  <Clock3 size={18} />
+                  Event feed
+                </h3>
+                <p>Recent operational activity entering the platform.</p>
+              </div>
+            </div>
+
+            <div className="feed-list">
+              {eventFeed.map((item) => (
+                <div className="feed-item" key={item.id}>
+                  <div>
+                    <strong>{item.event}</strong>
+                    <p>{item.category}</p>
+                  </div>
+                  <span className="feed-time">{item.time}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <ScenarioSimulation scenario={scenario} onChangeScenario={setScenario} />
+      </div>
   );
 }
