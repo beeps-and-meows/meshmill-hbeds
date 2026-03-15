@@ -1,5 +1,5 @@
 interface StatusPillProps {
-  tone: 'green' | 'amber' | 'red' | 'slate';
+  tone: 'green' | 'amber' | 'red' | 'slate' | 'blue';
   children: React.ReactNode;
 }
 
