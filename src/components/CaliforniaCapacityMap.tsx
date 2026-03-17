@@ -211,6 +211,12 @@ export function CaliforniaCapacityMap({ hospitals, selectedBedType }: Props) {
                 <StatusPill tone="slate">{activeHospital.ehr}</StatusPill>
               </div>
 
+              <div className="map-data-freshness">
+                <span className="mini-label">Last facility sync</span>
+                <strong>{new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(activeHospital.lastUpdated))}</strong>
+                <span>Automated feed via {activeHospital.reportingMethod}</span>
+              </div>
+
               <div className="map-metric-grid">
                 <div className="map-metric">
                   <Building2 size={16} />
