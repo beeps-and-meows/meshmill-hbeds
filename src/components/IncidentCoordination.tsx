@@ -1,4 +1,4 @@
-import { Route, ShieldPlus } from 'lucide-react';
+import { ArrowRight, Route, ShieldPlus } from 'lucide-react';
 import { StatusPill } from './StatusPill';
 
 type ScenarioMode = 'normal' | 'surge' | 'degraded' | 'incident';
@@ -64,11 +64,27 @@ export function IncidentCoordination({ scenario }: IncidentCoordinationProps) {
   const tone =
     scenario === 'incident'
       ? 'red'
-      : scenario === 'surge'
+      : scenario === 'surge' || scenario === 'degraded'
         ? 'amber'
+        : 'green';
+
+  const blockedFacility =
+    scenario === 'incident'
+      ? 'Closest trauma site on diversion'
+      : scenario === 'surge'
+        ? 'Nearest ICU is saturated'
         : scenario === 'degraded'
-          ? 'amber'
-          : 'green';
+          ? 'Primary facility feed unverified'
+          : 'No immediate blockage';
+
+  const rerouteReason =
+    scenario === 'incident'
+      ? 'High-acuity trauma patient rerouted to open specialty destination.'
+      : scenario === 'surge'
+        ? 'EMS identifies the nearest facility with staffed ICU headroom and acceptable offload time.'
+        : scenario === 'degraded'
+          ? 'Fallback validation confirms the safest receiving site before transport is committed.'
+          : 'Standard routing confirms the closest appropriate destination in normal operations.';
 
   return (
     <div className="panel incident-coordination">
@@ -90,10 +106,30 @@ export function IncidentCoordination({ scenario }: IncidentCoordinationProps) {
             <div className="routing-node south">LA Trauma Center</div>
             <div className="routing-node sd">San Diego Crisis Unit</div>
 
+            <div className="route-arrow route-arrow-1" />
+            <div className="route-arrow route-arrow-2" />
+
             <div className="route-callout">
-            <strong>Recommended route</strong>
-            <div>🚑 {destination} · TTC {ttc}</div>
+              <strong>Recommended route</strong>
+              <div>🚑 {destination} · TTC {ttc}</div>
+            </div>
           </div>
+
+          <div className="decision-flow">
+            <div className="decision-step blocked">
+              <span className="decision-label">Before</span>
+              <strong>{blockedFacility}</strong>
+              <p>
+                EMS starts with the closest option, but available staffed capacity or feed confidence
+                blocks immediate placement.
+              </p>
+            </div>
+            <ArrowRight size={16} className="decision-arrow" />
+            <div className="decision-step routed">
+              <span className="decision-label">After</span>
+              <strong>{destination}</strong>
+              <p>{rerouteReason}</p>
+            </div>
           </div>
         </div>
 
