@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { MapPinned, Ambulance, Activity, Building2, X } from 'lucide-react';
+import { MapPinned, Ambulance, Activity, Building2, Info, X } from 'lucide-react';
 import { StatusPill } from './StatusPill';
 import type { BedType, HospitalRecord } from '../lib/data';
 
@@ -244,7 +244,15 @@ export function CaliforniaCapacityMap({ hospitals, selectedBedType }: Props) {
               </div>
 
               <div className="bed-breakdown">
-                <h4>Bed Availability</h4>
+                <div className="bed-breakdown-head">
+                  <h4>Staffed Bed Availability by Care Unit</h4>
+                  <span
+                    className="tooltip-icon"
+                    title="Displays bed availability segmented by care unit or department based on hospital source systems."
+                  >
+                    <Info size={14} />
+                  </span>
+                </div>
                 {activeHospital.beds.map((bed) => {
                   const pct = bed.staffed ? Math.round((bed.available / bed.staffed) * 100) : 0;
                   return (

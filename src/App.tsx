@@ -6,13 +6,11 @@ import {
   Building2,
   CheckCircle2,
   Clock3,
-  Database,
   Moon,
   RefreshCw,
   ShieldCheck,
   SunMedium,
   TrendingUp,
-  Workflow,
 } from 'lucide-react';
 
 import { LoginScreen } from './components/LoginScreen';
@@ -22,18 +20,11 @@ import { IncidentCoordination } from './components/IncidentCoordination';
 import { InteroperabilityFeedHealth } from './components/InteroperabilityFeedHealth';
 import { ScenarioSimulation } from './components/ScenarioSimulation';
 
-import {
-  alerts,
-  emsMetrics,
-  eventFeed,
-  hospitals,
-  onboardingSites,
-  rfpAlignment,
-  type BedType,
-} from './lib/data';
+import { alerts, emsMetrics, hospitals, type BedType } from './lib/data';
 
 type ThemeMode = 'dark' | 'light';
 type ScenarioMode = 'normal' | 'surge' | 'degraded' | 'incident';
+type OperationalState = 'CRITICAL' | 'SURGE' | 'WATCH' | 'NORMAL' | 'UNKNOWN';
 
 type RegionFilter =
   | 'All'
@@ -69,13 +60,125 @@ function getAlertTone(level: string): 'green' | 'amber' | 'red' | 'blue' | 'slat
   return 'slate';
 }
 
+function getOperationalTone(
+  state: OperationalState
+): 'green' | 'amber' | 'red' | 'slate' | 'blue' {
+  if (state === 'NORMAL') return 'green';
+  if (state === 'WATCH' || state === 'SURGE') return 'amber';
+  if (state === 'CRITICAL') return 'red';
+  return 'slate';
+}
+
+function computeStatewideOperationalStatus({
+  icuCapacityPercent,
+  hospitalsOnDiversion,
+  hospitalsReporting,
+  hospitalsTotal,
+}: {
+  icuCapacityPercent: number | null;
+  hospitalsOnDiversion: number | null;
+  hospitalsReporting: number | null;
+  hospitalsTotal: number | null;
+}) {
+  const invalid =
+    icuCapacityPercent == null ||
+    hospitalsOnDiversion == null ||
+    hospitalsReporting == null ||
+    hospitalsTotal == null ||
+    hospitalsTotal <= 0;
+
+  if (invalid) {
+    return {
+      state: 'UNKNOWN' as OperationalState,
+      description: 'Operational status unavailable; required metrics missing.',
+      metrics: {
+        hospitalsReporting: 'N/A',
+        hospitalsOnDiversion: 'N/A',
+        icuCapacityPercent: 'N/A',
+      },
+    };
+  }
+
+  const diversionRatePercent = (hospitalsOnDiversion / hospitalsTotal) * 100;
+  const hospitalsReportingPercent = (hospitalsReporting / hospitalsTotal) * 100;
+
+  if (
+    icuCapacityPercent <= 10 ||
+    diversionRatePercent >= 25 ||
+    hospitalsReportingPercent < 70
+  ) {
+    return {
+      state: 'CRITICAL' as OperationalState,
+      description: 'Critical capacity constraints; immediate intervention required.',
+      metrics: {
+        hospitalsReporting: `${hospitalsReporting} / ${hospitalsTotal}`,
+        hospitalsOnDiversion: `${hospitalsOnDiversion}`,
+        icuCapacityPercent: `${icuCapacityPercent}%`,
+      },
+    };
+  }
+
+  if (icuCapacityPercent <= 20 || diversionRatePercent >= 15) {
+    return {
+      state: 'SURGE' as OperationalState,
+      description: 'High system demand; capacity constrained across multiple regions.',
+      metrics: {
+        hospitalsReporting: `${hospitalsReporting} / ${hospitalsTotal}`,
+        hospitalsOnDiversion: `${hospitalsOnDiversion}`,
+        icuCapacityPercent: `${icuCapacityPercent}%`,
+      },
+    };
+  }
+
+  if (icuCapacityPercent <= 30 || diversionRatePercent >= 5 || hospitalsReportingPercent < 85) {
+    return {
+      state: 'WATCH' as OperationalState,
+      description: 'Elevated utilization; monitoring for potential capacity constraints.',
+      metrics: {
+        hospitalsReporting: `${hospitalsReporting} / ${hospitalsTotal}`,
+        hospitalsOnDiversion: `${hospitalsOnDiversion}`,
+        icuCapacityPercent: `${icuCapacityPercent}%`,
+      },
+    };
+  }
+
+  return {
+    state: 'NORMAL' as OperationalState,
+    description: 'Stable statewide capacity; no critical thresholds exceeded.',
+    metrics: {
+      hospitalsReporting: `${hospitalsReporting} / ${hospitalsTotal}`,
+      hospitalsOnDiversion: `${hospitalsOnDiversion}`,
+      icuCapacityPercent: `${icuCapacityPercent}%`,
+    },
+  };
+}
+
+function getBedCensusStatus(availablePercent: number) {
+  if (availablePercent <= 10) return { label: 'Critical', tone: 'red' as const };
+  if (availablePercent <= 25) return { label: 'Watch', tone: 'amber' as const };
+  return { label: 'Healthy', tone: 'green' as const };
+}
+
+function getCapacityPressureStatus(utilizationPercent: number) {
+  if (utilizationPercent >= 95) return { label: 'Critical', tone: 'red' as const };
+  if (utilizationPercent >= 85) return { label: 'Strained', tone: 'amber' as const };
+  if (utilizationPercent >= 70) return { label: 'Watch', tone: 'amber' as const };
+  return { label: 'Normal', tone: 'green' as const };
+}
+
+function getFacilityChipBucket(availablePercent: number) {
+  if (availablePercent <= 10) return 'critical';
+  if (availablePercent <= 20) return 'strained';
+  if (availablePercent <= 30) return 'watch';
+  return 'healthy';
+}
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('hbeds-theme');
     return saved === 'light' ? 'light' : 'dark';
   });
-
   const [scenario, setScenario] = useState<ScenarioMode>('normal');
   const [region, setRegion] = useState<RegionFilter>('All');
   const [bedType, setBedType] = useState<BedType | 'All'>('All');
@@ -128,38 +231,28 @@ export default function App() {
         };
       }
 
-      if (scenario === 'incident') {
-        return {
-          ...hospital,
-          status: hospital.status === 'Normal' ? 'Internal Disaster' : hospital.status,
-          ambulanceQueue: hospital.ambulanceQueue + 4,
-          emsWallTimeMinutes: hospital.emsWallTimeMinutes + 15,
-          boardingPatients: hospital.boardingPatients + 8,
-          lastUpdated: lastRefresh.toISOString(),
-          notes: `${hospital.notes} Incident command mode active.`,
-          beds: hospital.beds.map((bed) => {
-            const nextAvailable = Math.max(0, Math.floor(bed.available * 0.45));
-            return {
-              ...bed,
-              available: nextAvailable,
-              occupied: bed.staffed - nextAvailable,
-            };
-          }),
-        };
-      }
-
       return {
         ...hospital,
+        status: hospital.status === 'Normal' ? 'Internal Disaster' : hospital.status,
+        ambulanceQueue: hospital.ambulanceQueue + 4,
+        emsWallTimeMinutes: hospital.emsWallTimeMinutes + 15,
+        boardingPatients: hospital.boardingPatients + 8,
         lastUpdated: lastRefresh.toISOString(),
+        notes: `${hospital.notes} Incident command mode active.`,
+        beds: hospital.beds.map((bed) => {
+          const nextAvailable = Math.max(0, Math.floor(bed.available * 0.45));
+          return {
+            ...bed,
+            available: nextAvailable,
+            occupied: bed.staffed - nextAvailable,
+          };
+        }),
       };
     });
   }, [scenario, lastRefresh]);
 
   const filteredHospitals = useMemo(() => {
-    return scenarioHospitals.filter((hospital) => {
-      const regionMatch = region === 'All' || hospital.region === region;
-      return regionMatch;
-    });
+    return scenarioHospitals.filter((hospital) => region === 'All' || hospital.region === region);
   }, [scenarioHospitals, region]);
 
   const scenarioAlerts = useMemo(() => {
@@ -169,7 +262,7 @@ export default function App() {
       return [
         {
           id: 'scenario-surge',
-          level: 'warning',
+          level: 'warning' as const,
           title: 'Regional surge activated',
           detail:
             'ED boarding, ICU saturation, and ambulance queue times are elevated across multiple facilities.',
@@ -183,7 +276,7 @@ export default function App() {
       return [
         {
           id: 'scenario-degraded',
-          level: 'critical',
+          level: 'critical' as const,
           title: 'Network degradation detected',
           detail:
             'One or more facility feeds are delayed. Fallback validation and transport coordination paths are active.',
@@ -197,7 +290,7 @@ export default function App() {
       return [
         {
           id: 'scenario-incident',
-          level: 'critical',
+          level: 'critical' as const,
           title: 'Incident mode active',
           detail:
             'Command posture elevated. Diversion and high-acuity routing should be coordinated centrally.',
@@ -213,12 +306,11 @@ export default function App() {
   const statewideTotals = useMemo(() => {
     let staffed = 0;
     let available = 0;
-    let boarding = 0;
+    let occupied = 0;
     let ambulanceQueue = 0;
     let wallTimeTotal = 0;
 
     filteredHospitals.forEach((hospital) => {
-      boarding += hospital.boardingPatients;
       ambulanceQueue += hospital.ambulanceQueue;
       wallTimeTotal += hospital.emsWallTimeMinutes;
 
@@ -226,6 +318,7 @@ export default function App() {
         if (bedType === 'All' || bed.type === bedType) {
           staffed += bed.staffed;
           available += bed.available;
+          occupied += bed.occupied;
         }
       });
     });
@@ -235,41 +328,83 @@ export default function App() {
       : 0;
 
     const availablePct = staffed ? Math.round((available / staffed) * 100) : 0;
+    const utilizationPct = staffed ? Math.round((occupied / staffed) * 100) : 0;
 
     return {
       staffed,
       available,
+      occupied,
       availablePct,
-      boarding,
+      utilizationPct,
       ambulanceQueue,
       avgWallTime,
     };
   }, [filteredHospitals, bedType]);
 
-  const facilityCount = filteredHospitals.length;
-  const surgeFacilities = filteredHospitals.filter((h) => h.status === 'Surge').length;
-  const diversionFacilities = filteredHospitals.filter(
-    (h) => h.status === 'Diversion' || h.status === 'Internal Disaster'
-  ).length;
+  const facilityBuckets = useMemo(() => {
+    return filteredHospitals.reduce(
+      (acc, hospital) => {
+        const relevantBeds =
+          bedType === 'All'
+            ? hospital.beds
+            : hospital.beds.filter((bed) => bed.type === bedType);
+        const staffed = relevantBeds.reduce((sum, bed) => sum + bed.staffed, 0);
+        const available = relevantBeds.reduce((sum, bed) => sum + bed.available, 0);
+        const availablePercent = staffed ? Math.round((available / staffed) * 100) : 0;
+        acc[getFacilityChipBucket(availablePercent)] += 1;
+        return acc;
+      },
+      { healthy: 0, watch: 0, strained: 0, critical: 0 }
+    );
+  }, [filteredHospitals, bedType]);
 
   const chartPoints = useMemo(() => {
-    const base =
-      scenario === 'incident'
-        ? [88, 84, 79, 73, 68, 64, 61]
-        : scenario === 'surge'
-          ? [90, 87, 81, 76, 72, 69, 66]
-          : scenario === 'degraded'
-            ? [91, 89, 85, 83, 80, 78, 76]
-            : [92, 90, 88, 86, 84, 83, 82];
-
-    return base;
+    if (scenario === 'incident') return [88, 84, 79, 73, 68, 64, 61];
+    if (scenario === 'surge') return [90, 87, 81, 76, 72, 69, 66];
+    if (scenario === 'degraded') return [91, 89, 85, 83, 80, 78, 76];
+    return [92, 90, 88, 86, 84, 83, 82];
   }, [scenario]);
 
+  const ribbonInputs = useMemo(() => {
+    const hospitalsTotal = filteredHospitals.length;
+    const adultIcu = filteredHospitals.reduce(
+      (totals, hospital) => {
+        const icu = hospital.beds.find((bed) => bed.type === 'Adult ICU');
+        totals.staffed += icu?.staffed ?? 0;
+        totals.available += icu?.available ?? 0;
+        return totals;
+      },
+      { staffed: 0, available: 0 }
+    );
+
+    const icuCapacityPercent = adultIcu.staffed
+      ? Math.round((adultIcu.available / adultIcu.staffed) * 100)
+      : null;
+
+    const hospitalsOnDiversion = filteredHospitals.filter(
+      (hospital) => hospital.status === 'Diversion' || hospital.status === 'Internal Disaster'
+    ).length;
+
+    const hospitalsReporting =
+      scenario === 'degraded' && hospitalsTotal >= 4 ? hospitalsTotal - 1 : hospitalsTotal;
+
+    return {
+      icuCapacityPercent,
+      hospitalsOnDiversion,
+      hospitalsReporting,
+      hospitalsTotal,
+    };
+  }, [filteredHospitals, scenario]);
+
+  const ribbonStatus = useMemo(() => computeStatewideOperationalStatus(ribbonInputs), [ribbonInputs]);
   const latestUpdateLabel = formatClock(lastRefresh);
   const activeFeedHealth =
     scenario === 'degraded'
-      ? 'Feed validation active on delayed facilities'
-      : 'All facilities streaming normalized data';
+      ? 'Feed validation active on delayed facilities.'
+      : 'Automated reporting is advancing continuously across the network.';
+
+  const bedCensusStatus = getBedCensusStatus(statewideTotals.availablePct);
+  const capacityStatus = getCapacityPressureStatus(statewideTotals.utilizationPct);
 
   if (!isAuthenticated) {
     return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
@@ -277,16 +412,29 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <section className="topbar">
-        <div>
+      <section className={`state-ribbon ribbon-${ribbonStatus.state.toLowerCase()}`}>
+        <div className="state-ribbon-top">
+          <StatusPill tone={getOperationalTone(ribbonStatus.state)}>{ribbonStatus.state}</StatusPill>
+          <span>{ribbonStatus.description}</span>
+        </div>
+        <div className="state-ribbon-meta">
+          <span>Hospitals Reporting (Live): {ribbonStatus.metrics.hospitalsReporting}</span>
+          <span>Hospitals on Diversion: {ribbonStatus.metrics.hospitalsOnDiversion}</span>
+          <span>ICU Capacity: {ribbonStatus.metrics.icuCapacityPercent}</span>
+        </div>
+      </section>
+
+      <section className="topbar platform-header">
+        <div className="header-stack">
           <div className="eyebrow operational">
             <ShieldCheck size={16} />
-            Secure Session Active · California HBEDS Demo
+            Secure operational view
           </div>
-          <h1>HBEDS Operational Engine</h1>
-          <p className="subtitle">
-            Real-time staffed bed visibility, EMS coordination, and operational reporting for
-            hospitals, public health leadership, and incident command teams.
+          <h1>HBEDS Operational Platform</h1>
+          <div className="header-powered">Powered by MeshMill&apos;s M.A.R.I.O. Interoperability Engine</div>
+          <p className="subtitle header-tagline">
+            Real-time staffed bed availability, multi-hospital coordination, and statewide
+            operational intelligence across hospitals and EMS.
           </p>
         </div>
 
@@ -307,111 +455,197 @@ export default function App() {
         </div>
       </section>
 
-      <section className="proof-strip panel">
-        <div className="proof-item">
-          <div className="proof-icon blue">
-            <CheckCircle2 size={16} />
+      <section className="overview-grid">
+        <div className="overview-main">
+          <div className="hero-panel glass">
+            <div className="section-head compact">
+              <div>
+                <h3>
+                  <TrendingUp size={18} />
+                  Statewide Operational Snapshot
+                </h3>
+                <p>Capacity, strain, EMS pressure, and delay across the selected hospital network.</p>
+              </div>
+
+              <div className="snapshot-chip-row">
+                <StatusPill tone="green">{facilityBuckets.healthy} Healthy Facilities</StatusPill>
+                <StatusPill tone="amber">{facilityBuckets.watch} Watch</StatusPill>
+                <StatusPill tone="amber">{facilityBuckets.strained} Strained</StatusPill>
+                <StatusPill tone="red">{facilityBuckets.critical} Critical</StatusPill>
+              </div>
+            </div>
+
+            <div className="hero-metrics">
+              <div className="stat-card tone-green">
+                <div className="stat-topline">
+                  <div className="stat-label">Bed Census</div>
+                  <StatusPill tone={bedCensusStatus.tone}>{bedCensusStatus.label}</StatusPill>
+                </div>
+                <div className="stat-value">
+                  {formatNumber(statewideTotals.occupied)} / {formatNumber(statewideTotals.available)} /{' '}
+                  {formatNumber(statewideTotals.staffed)}
+                </div>
+                <div className="stat-helper">{statewideTotals.availablePct}% available across staffed beds</div>
+              </div>
+
+              <div className="stat-card tone-blue">
+                <div className="stat-topline">
+                  <div className="stat-label">Capacity Pressure</div>
+                  <StatusPill tone={capacityStatus.tone}>{capacityStatus.label}</StatusPill>
+                </div>
+                <div className="stat-value">{statewideTotals.utilizationPct}%</div>
+                <div className="stat-helper">System-wide staffed bed utilization</div>
+              </div>
+
+              <div className="stat-card tone-amber">
+                <div className="stat-label">Ambulance Queue</div>
+                <div className="stat-value">{formatNumber(statewideTotals.ambulanceQueue)}</div>
+                <div className="stat-helper">Queued transports across selected facilities</div>
+              </div>
+
+              <div className="stat-card tone-red">
+                <div className="stat-label">EMS Offload Time</div>
+                <div className="stat-value">{statewideTotals.avgWallTime}m</div>
+                <div className="stat-helper">Average time-to-offload under active conditions</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <strong>Production-ready SaaS</strong>
-            <span>Pre-existing, contractor-hosted platform ready for immediate deployment.</span>
-          </div>
+
+          <InteroperabilityFeedHealth scenario={scenario} />
         </div>
-        <div className="proof-item">
-          <div className="proof-icon green">
-            <RefreshCw size={16} />
-          </div>
-          <div>
-            <strong>Live integration proof</strong>
-            <span>Facility timestamps advance continuously from normalized hospital system feeds.</span>
-          </div>
-        </div>
-        <div className="proof-item">
-          <div className="proof-icon amber">
-            <Database size={16} />
-          </div>
-          <div>
-            <strong>Statewide scale validated</strong>
-            <span>Structured validation modeled approximately 40 hospitals and scaled to 400.</span>
+
+        <div className="overview-side">
+          <div className="panel freshness-panel">
+            <div className="section-head compact">
+              <div>
+                <h3>
+                  <RefreshCw size={18} />
+                  Live Data Freshness
+                </h3>
+                <p>Continuous timestamps demonstrating automated reporting without manual entry.</p>
+              </div>
+              <StatusPill tone={scenario === 'degraded' ? 'amber' : 'green'}>
+                {scenario === 'degraded' ? 'Validation fallback active' : 'Automated feed active'}
+              </StatusPill>
+            </div>
+
+            <div className="freshness-grid freshness-grid-single">
+              <div className="freshness-card pulse-card">
+                <span className="mini-label">Last network sync</span>
+                <strong>{latestUpdateLabel}</strong>
+                <span>{activeFeedHealth}</span>
+              </div>
+              <div className="freshness-card">
+                <span className="mini-label">Hospital API stream</span>
+                <strong>{scenario === 'degraded' ? '35 live / 5 validating' : '40 live / 0 delayed'}</strong>
+                <span>EHR integrations keep normalized operational objects moving in real time.</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="hero-grid">
-        <div className="hero-panel glass">
-          <div className="section-head compact">
-            <div>
-              <h3>
-                <TrendingUp size={18} />
-                Statewide Operational Snapshot
-              </h3>
-              <p>
-                Capacity and transport pressure across the currently filtered hospital set.
-              </p>
-            </div>
-            <div className="hero-status-row">
-              <StatusPill tone="green">{facilityCount} facilities in scope</StatusPill>
-              <StatusPill tone="amber">{surgeFacilities} surge</StatusPill>
-              <StatusPill tone="red">{diversionFacilities} diversion / incident</StatusPill>
-            </div>
-          </div>
-
-          <div className="hero-metrics">
-            <div className="stat-card tone-green">
-              <div className="stat-label">Available beds</div>
-              <div className="stat-value">{formatNumber(statewideTotals.available)}</div>
-              <div className="stat-helper">
-                {statewideTotals.availablePct}% of staffed capacity available
-              </div>
-            </div>
-
-            <div className="stat-card tone-blue">
-              <div className="stat-label">Staffed beds</div>
-              <div className="stat-value">{formatNumber(statewideTotals.staffed)}</div>
-              <div className="stat-helper">Reporting on current bed type filter</div>
-            </div>
-
-            <div className="stat-card tone-amber">
-              <div className="stat-label">Ambulance queue</div>
-              <div className="stat-value">{formatNumber(statewideTotals.ambulanceQueue)}</div>
-              <div className="stat-helper">Queued transports across in-scope facilities</div>
-            </div>
-
-            <div className="stat-card tone-red">
-              <div className="stat-label">Avg EMS wall time</div>
-              <div className="stat-value">{statewideTotals.avgWallTime}m</div>
-              <div className="stat-helper">Average time-to-offload under active conditions</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="sync-card glass">
+      <section className="support-card-grid">
+        <div className="panel support-card">
           <div className="section-head compact">
             <div>
               <h3>
                 <Clock3 size={18} />
-                Reporting & compliance
+                Reporting Status
               </h3>
-              <p>Demo alignment to HBEDS reporting, onboarding, and transmission workflows.</p>
+              <p>Real-time reporting status and compliance with CDPH and CDC/NHSN requirements.</p>
+            </div>
+            <StatusPill tone={scenario === 'degraded' ? 'amber' : 'green'}>
+              {scenario === 'degraded' ? 'At risk' : 'Compliant'}
+            </StatusPill>
+          </div>
+
+          <div className="reporting-grid">
+            <div className="reporting-item">
+              <strong>CDPH Reporting Status</strong>
+              <span>Last submission: 2:00 PM</span>
+              <span>Status: {scenario === 'degraded' ? 'Delayed review' : 'On time'}</span>
+              <span>Feed: Automated</span>
+            </div>
+            <div className="reporting-item">
+              <strong>CDPH Next Window</strong>
+              <span>Next due: 2:15 PM</span>
+              <span>Status: {scenario === 'degraded' ? 'Monitoring' : 'On track'}</span>
+              <span>Cadence: 15-minute target</span>
+            </div>
+            <div className="reporting-item">
+              <strong>NHSN Reporting</strong>
+              <span>Last submission: 8:00 AM</span>
+              <span>Status: {scenario === 'degraded' ? 'Pending ack' : 'Accepted by CDC'}</span>
+              <span>Submission: Automated</span>
+            </div>
+            <div className="reporting-item">
+              <strong>NHSN Next Window</strong>
+              <span>Next due: 8:00 PM</span>
+              <span>Status: {scenario === 'degraded' ? 'Reviewing' : 'On track'}</span>
+              <span>Cadence: Twice daily minimum</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel support-card">
+          <div className="section-head compact">
+            <div>
+              <h3>
+                <ShieldCheck size={18} />
+                Access &amp; Security
+              </h3>
+              <p>Authentication, access control, auditability, and session protections.</p>
             </div>
           </div>
 
-          <div className="mini-grid">
+          <div className="security-list">
+            <div className="security-item">
+              <span>Authentication</span>
+              <strong>SSO + MFA</strong>
+            </div>
+            <div className="security-item">
+              <span>Access Control</span>
+              <strong>RBAC enforced</strong>
+            </div>
+            <div className="security-item">
+              <span>Audit Logging</span>
+              <strong>Enabled</strong>
+            </div>
+            <div className="security-item">
+              <span>Session Security</span>
+              <strong>Encrypted (TLS 1.2+)</strong>
+            </div>
+            <div className="security-item">
+              <span>User Scope</span>
+              <strong>Role- and jurisdiction-based</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel support-card">
+          <div className="section-head compact">
             <div>
-              <span className="mini-label">CDPH cadence</span>
-              <strong>15-minute target</strong>
+              <h3>
+                <CheckCircle2 size={18} />
+                Deployment Confidence
+              </h3>
+              <p>Evaluator-ready proof points that reduce perceived implementation risk.</p>
+            </div>
+          </div>
+
+          <div className="deployment-list">
+            <div>
+              <strong>Immediate readiness</strong>
+              <span>The platform is framed as a live operational system rather than a prototype workflow.</span>
             </div>
             <div>
-              <span className="mini-label">NHSN cadence</span>
-              <strong>Twice daily minimum</strong>
+              <strong>Enterprise fit</strong>
+              <span>Visual language and reporting posture align with enterprise command-center dashboards.</span>
             </div>
             <div>
-              <span className="mini-label">Auth model</span>
-              <strong>SSO + MFA + RBAC</strong>
-            </div>
-            <div>
-              <span className="mini-label">Validation range</span>
-              <strong>40 to 400 hospitals</strong>
+              <strong>Validation range</strong>
+              <span>Deployment messaging retains the approximately 40-hospital to 400-hospital scaling proof point.</span>
             </div>
           </div>
         </div>
@@ -422,7 +656,7 @@ export default function App() {
           <div>
             <h3>
               <Activity size={18} />
-              Operational filters
+              Operational Filters
             </h3>
             <p>Slice the network by region and bed type to inspect live operational posture.</p>
           </div>
@@ -431,10 +665,7 @@ export default function App() {
         <div className="filter-row">
           <label>
             Region
-            <select
-              value={region}
-              onChange={(e) => setRegion(e.target.value as RegionFilter)}
-            >
+            <select value={region} onChange={(e) => setRegion(e.target.value as RegionFilter)}>
               <option value="All">All regions</option>
               <option value="Northern">Northern</option>
               <option value="Bay Area">Bay Area</option>
@@ -447,10 +678,7 @@ export default function App() {
 
           <label>
             Bed type
-            <select
-              value={bedType}
-              onChange={(e) => setBedType(e.target.value as BedType | 'All')}
-            >
+            <select value={bedType} onChange={(e) => setBedType(e.target.value as BedType | 'All')}>
               <option value="All">All bed types</option>
               <option value="Adult ICU">Adult ICU</option>
               <option value="Medical Surgical">Medical Surgical</option>
@@ -465,72 +693,7 @@ export default function App() {
 
           <div className="filter-note">
             <ShieldCheck size={16} />
-            Filters update map, facility table, and coordination recommendations.
-          </div>
-        </div>
-      </section>
-
-      <section className="live-proof-grid">
-        <div className="panel freshness-panel">
-          <div className="section-head compact">
-            <div>
-              <h3>
-                <RefreshCw size={18} />
-                Live data freshness proof
-              </h3>
-              <p>
-                Timestamps advance continuously to demonstrate automated reporting without manual
-                entry.
-              </p>
-            </div>
-            <StatusPill tone={scenario === 'degraded' ? 'amber' : 'green'}>
-              {scenario === 'degraded' ? 'Validation fallback active' : 'Automated feed active'}
-            </StatusPill>
-          </div>
-
-          <div className="freshness-grid">
-            <div className="freshness-card pulse-card">
-              <span className="mini-label">Last network sync</span>
-              <strong>{latestUpdateLabel}</strong>
-              <span>{activeFeedHealth}</span>
-            </div>
-            <div className="freshness-card">
-              <span className="mini-label">Hospital API stream</span>
-              <strong>{scenario === 'degraded' ? '35 live / 5 validating' : '40 live / 0 delayed'}</strong>
-              <span>EHR integrations continue updating normalized operational objects.</span>
-            </div>
-            <div className="freshness-card">
-              <span className="mini-label">Manual entry reliance</span>
-              <strong>Eliminated for core reporting</strong>
-              <span>Direct interfaces drive bed, EMS, queue, and alert data into the dashboard.</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel deployment-panel">
-          <div className="section-head compact">
-            <div>
-              <h3>
-                <CheckCircle2 size={18} />
-                Deployment confidence
-              </h3>
-              <p>Evaluator-ready proof points that reduce perceived implementation risk.</p>
-            </div>
-          </div>
-
-          <div className="deployment-list">
-            <div>
-              <strong>Immediate readiness</strong>
-              <span>This is not a prototype or pilot workflow. The experience is framed as a live operational system.</span>
-            </div>
-            <div>
-              <strong>Secure access model</strong>
-              <span>Role-aware hospital and government views are paired with SSO and MFA language throughout the flow.</span>
-            </div>
-            <div>
-              <strong>Statewide operating scale</strong>
-              <span>Validation messaging now explicitly references approximately 40-hospital and 400-hospital conditions.</span>
-            </div>
+            Filters update the snapshot, map, and facility operational detail views.
           </div>
         </div>
       </section>
@@ -546,7 +709,7 @@ export default function App() {
             {scenario === 'surge' &&
               'Available capacity has been reduced for demo purposes, with elevated EMS queue and boarding pressure.'}
             {scenario === 'degraded' &&
-              'Feed latency and facility validation are degraded. Interoperability panels show reduced confidence.'}
+              'Feed latency and facility validation are degraded. Reporting and platform health reflect lower confidence.'}
             {scenario === 'incident' &&
               'Incident command mode is active, with elevated acuity routing and reduced available capacity.'}
           </span>
@@ -564,9 +727,7 @@ export default function App() {
                   <Building2 size={18} />
                   Facility Operational View
                 </h3>
-                <p>
-                  Real-time staffed-bed availability, status, EMS pressure, and reporting health.
-                </p>
+                <p>Real-time staffed-bed availability, status, EMS pressure, and reporting health.</p>
               </div>
               <StatusPill tone="slate">{filteredHospitals.length} facilities in scope</StatusPill>
             </div>
@@ -638,7 +799,7 @@ export default function App() {
               <div>
                 <h3>
                   <BedDouble size={18} />
-                  Capacity trend outlook
+                  Capacity Trend Outlook
                 </h3>
                 <p>Illustrative availability trend across the current scenario.</p>
               </div>
@@ -709,7 +870,7 @@ export default function App() {
               <div>
                 <h3>
                   <Activity size={18} />
-                  Live alert stream
+                  Live Alert Stream
                 </h3>
                 <p>Critical, warning, and informational operational updates.</p>
               </div>
@@ -736,7 +897,7 @@ export default function App() {
               <div>
                 <h3>
                   <Ambulance size={18} />
-                  EMS metrics
+                  EMS Metrics
                 </h3>
                 <p>Operational indicators relevant to patient movement and offload pressure.</p>
               </div>
@@ -763,109 +924,19 @@ export default function App() {
         </div>
       </section>
 
-      <section className="ops-console-grid">
-        <div className="ops-console-main">
-          <div className="panel">
-            <div className="section-head compact">
-              <div>
-                <h3>
-                  <ShieldCheck size={18} />
-                  Onboarding & validation
-                </h3>
-                <p>Facility activation and feed validation milestones.</p>
-              </div>
-            </div>
-
-            <div className="onboarding-list">
-              {onboardingSites.map((item) => (
-                <div className="onboarding-item" key={item.hospital}>
-                  <div>
-                    <strong>{item.hospital}</strong>
-                    <span>{item.owner}</span>
-                  </div>
-                  <div className="right-align">
-                    <StatusPill
-                      tone={
-                        item.phase === 'Live'
-                          ? 'green'
-                          : item.phase === 'Validation'
-                            ? 'amber'
-                            : 'slate'
-                      }
-                    >
-                      {item.phase}
-                    </StatusPill>
-                    <span className="muted">{item.eta}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="section-head compact">
-              <div>
-                <h3>
-                  <Workflow size={18} />
-                  RFP alignment
-                </h3>
-                <p>Illustrative feature-to-requirement alignment for the demo scope.</p>
-              </div>
-            </div>
-
-            <div className="alignment-grid">
-              {rfpAlignment.map((item) => (
-                <div className="alignment-card" key={item.title}>
-                  <h4>{item.title}</h4>
-                  <p>{item.summary}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        <aside className="ops-console-side">
-          <div className="panel">
-            <div className="section-head compact">
-              <div>
-                <h3>
-                  <Clock3 size={18} />
-                  Event feed
-                </h3>
-                <p>Recent operational activity entering the platform.</p>
-              </div>
-            </div>
-
-            <div className="feed-list">
-              {eventFeed.map((item) => (
-                <div className="feed-item" key={item.id}>
-                  <div>
-                    <strong>{item.event}</strong>
-                    <p>{item.category}</p>
-                  </div>
-                  <span className="feed-time">{item.time}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
-      </section>
-
       <section className="operational-intelligence">
         <div className="section-head">
           <div>
             <h3>
-              <Workflow size={18} />
-              Operational Intelligence
+              <ShieldCheck size={18} />
+              Care Capacity &amp; Placement
             </h3>
-            <p>Decision support, interoperability confidence, and live command coordination.</p>
+            <p>Operational routing and placement guidance for the current statewide posture.</p>
           </div>
         </div>
 
-        <div className="intelligence-grid">
+        <div className="intelligence-grid intelligence-grid-single">
           <IncidentCoordination scenario={scenario} />
-          <InteroperabilityFeedHealth scenario={scenario} />
         </div>
       </section>
 

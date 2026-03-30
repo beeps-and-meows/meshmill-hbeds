@@ -1,125 +1,133 @@
-import { Database, FileJson } from 'lucide-react';
+import { Activity, CircleAlert, Database, Wifi } from 'lucide-react';
+import { StatusPill } from './StatusPill';
 
 type ScenarioMode = 'normal' | 'surge' | 'degraded' | 'incident';
+type HealthStatus = 'Healthy' | 'Degraded' | 'Critical';
 
 interface InteroperabilityFeedHealthProps {
   scenario: ScenarioMode;
 }
 
+function getTone(status: HealthStatus) {
+  if (status === 'Healthy') return 'green' as const;
+  if (status === 'Degraded') return 'amber' as const;
+  return 'red' as const;
+}
+
 export function InteroperabilityFeedHealth({
   scenario,
 }: InteroperabilityFeedHealthProps) {
-  const matrix = Array.from({ length: 40 }, (_, i) => {
-    if (scenario === 'degraded') {
-      if (i === 3 || i === 11 || i === 18) return { id: i + 1, status: 'red' };
-      if (i === 7 || i === 24) return { id: i + 1, status: 'amber' };
-    }
-
-    if (scenario === 'incident') {
-      if (i === 8 || i === 23) return { id: i + 1, status: 'amber' };
-    }
-
-    return { id: i + 1, status: 'green' };
-  });
-
-  const networkSummary =
+  const liveFeeds =
     scenario === 'degraded'
-      ? '3.8s · 18.5% loss'
+      ? ({ label: 'Critical', detail: '278 / 400 reporting' } as const)
       : scenario === 'incident'
-        ? '1.9s · 6.1% loss'
-        : scenario === 'surge'
-          ? '1.7s · 4.2% loss'
-          : '1.4s · 1.2% loss';
+        ? ({ label: 'Degraded', detail: '332 / 400 reporting' } as const)
+        : ({
+            label: 'Healthy',
+            detail: scenario === 'surge' ? '356 / 400 reporting' : '370 / 400 reporting',
+          } as const);
+
+  const networkConnectivity =
+    scenario === 'degraded'
+      ? ({ label: 'Degraded', detail: 'Cellular fallback' } as const)
+      : ({ label: 'Healthy', detail: 'Fiber' } as const);
+
+  const marioEngine =
+    scenario === 'degraded'
+      ? ({ label: 'Degraded', detail: 'Performance reduced' } as const)
+      : ({ label: 'Healthy', detail: 'Active' } as const);
+
+  const acsSites =
+    scenario === 'surge' || scenario === 'incident'
+      ? ({ label: 'Healthy', detail: '12 sites online' } as const)
+      : ({ label: 'Healthy', detail: '0 sites required' } as const);
+
+  const dataLatency =
+    scenario === 'degraded'
+      ? ({ label: 'Critical', detail: '68s' } as const)
+      : scenario === 'incident'
+        ? ({ label: 'Degraded', detail: '41s' } as const)
+        : ({ label: 'Healthy', detail: scenario === 'surge' ? '24s' : '18s' } as const);
+
+  const platformHealth =
+    [liveFeeds, networkConnectivity, marioEngine, acsSites, dataLatency].some(
+      (item) => item.label === 'Critical'
+    )
+      ? 'Critical'
+      : [liveFeeds, networkConnectivity, marioEngine, acsSites, dataLatency].some(
+            (item) => item.label === 'Degraded'
+          )
+        ? 'Degraded'
+        : 'Healthy';
 
   return (
-    <div className="panel interoperability-panel">
+    <div className="panel platform-health-panel">
       <div className="section-head compact">
         <div>
           <h3>
             <Database size={18} />
-            Interoperability & Feed Health
+            Platform Health
           </h3>
-          <p>
-            Network readiness, live facility connections, onboarding progress, and normalized data
-            flow.
+          <p title="Indicates real-time platform health, data feed reliability, and system performance.">
+            Real-time platform health, data feed reliability, and system performance.
           </p>
         </div>
+        <StatusPill tone={getTone(platformHealth)}>{platformHealth}</StatusPill>
       </div>
 
-      <div className="network-ribbon">
-        <span className="network-label">Network</span>
-        <span className="network-chip">Fiber</span>
-        <span className="network-chip">LTE / FirstNet</span>
-        <span className="network-chip">Satellite</span>
-        <span className={`network-chip ${scenario === 'degraded' ? 'degraded' : ''}`}>
-          {scenario === 'degraded' ? 'Degraded' : 'Healthy'}
-        </span>
-        <strong>{networkSummary}</strong>
-      </div>
-
-      <div className="interop-grid">
-        <div className="connection-card">
-          <div className="connection-head">
-            <strong>M.A.R.I.O.™ Hospital Connection Matrix</strong>
-            <span>
-              {scenario === 'degraded' ? '35 / 40 live' : scenario === 'incident' ? '38 / 40 live' : '40 / 40 live'}
-            </span>
+      <div className="platform-health-list">
+        <div className="platform-health-row">
+          <div className="platform-health-label">
+            <Activity size={15} />
+            <span>Live Feeds</span>
           </div>
-
-          <div className="connection-dots">
-            {matrix.map((item) => (
-              <span
-                key={item.id}
-                className={`connection-dot ${item.status}`}
-                title={`Facility ${item.id}`}
-              />
-            ))}
-          </div>
-
-          <div className="connection-legend">
-            <span>
-              <i className="dot green" /> Live
-            </span>
-            <span>
-              <i className="dot amber" /> Validating
-            </span>
-            <span>
-              <i className="dot red" /> Feed failure
-            </span>
+          <div className="platform-health-value">
+            <StatusPill tone={getTone(liveFeeds.label)}>{liveFeeds.label}</StatusPill>
+            <strong>{liveFeeds.detail}</strong>
           </div>
         </div>
 
-        <div className="normalize-card">
-          <div className="normalize-head">
-            <FileJson size={16} />
-            <strong>EHR Normalization Viewer</strong>
+        <div className="platform-health-row">
+          <div className="platform-health-label">
+            <Wifi size={15} />
+            <span>Network Connectivity</span>
           </div>
+          <div className="platform-health-value">
+            <StatusPill tone={getTone(networkConnectivity.label)}>{networkConnectivity.label}</StatusPill>
+            <strong>{networkConnectivity.detail}</strong>
+          </div>
+        </div>
 
-          <div className="normalize-columns">
-            <div className="code-card">
-              <div className="code-title">Input (Epic EHR — Raw)</div>
-              <pre>{`{
-  "ICU_BEDS_AVAILABLE": 12,
-  "ER_BEDS_AVAILABLE": 8,
-  "staffedBeds": 340,
-  "divert_status": "ACTIVE",
-  "facilityCode": "SFR_001"
-}`}</pre>
-            </div>
+        <div className="platform-health-row">
+          <div className="platform-health-label">
+            <Database size={15} />
+            <span>Interoperability Engine (M.A.R.I.O.)</span>
+          </div>
+          <div className="platform-health-value">
+            <StatusPill tone={getTone(marioEngine.label)}>{marioEngine.label}</StatusPill>
+            <strong>{marioEngine.detail}</strong>
+          </div>
+        </div>
 
-            <div className="code-card">
-              <div className="code-title">Normalized Operational Object</div>
-              <pre>{`{
-  "facilityId": "HOSP_SF_001",
-  "bedType": "ICU",
-  "available": 12,
-  "staffed": 340,
-  "diversion": true,
-  "transport": ["ground", "air"],
-  "region": "bay_area",
-  "ehrSource": "Epic FHIR"
-}`}</pre>
-            </div>
+        <div className="platform-health-row">
+          <div className="platform-health-label">
+            <CircleAlert size={15} />
+            <span>ACS Sites Online</span>
+          </div>
+          <div className="platform-health-value">
+            <StatusPill tone={getTone(acsSites.label)}>{acsSites.label}</StatusPill>
+            <strong>{acsSites.detail}</strong>
+          </div>
+        </div>
+
+        <div className="platform-health-row">
+          <div className="platform-health-label">
+            <Activity size={15} />
+            <span>Data Latency</span>
+          </div>
+          <div className="platform-health-value">
+            <StatusPill tone={getTone(dataLatency.label)}>{dataLatency.label}</StatusPill>
+            <strong>{dataLatency.detail}</strong>
           </div>
         </div>
       </div>
