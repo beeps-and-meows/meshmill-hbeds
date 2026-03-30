@@ -1884,7 +1884,116 @@ select {
 }
 
 .support-card-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.reporting-strip,
+.pipeline-panel {
+  margin-bottom: 20px;
+}
+
+.architecture-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.architecture-link-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(83, 163, 255, 0.28);
+  background: rgba(83, 163, 255, 0.1);
+  color: var(--blue);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.architecture-link-copy {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.pipeline-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-soft);
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.pipeline-card p,
+.pipeline-assurance span {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.pipeline-icon,
+.pipeline-arrow,
+.pipeline-assurance {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pipeline-icon {
+  width: 34px;
+  height: 34px;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--blue);
+  background: rgba(83, 163, 255, 0.12);
+  border: 1px solid rgba(83, 163, 255, 0.2);
+}
+
+.pipeline-arrow {
+  justify-content: center;
+  color: var(--muted);
+}
+
+.pipeline-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pipeline-tags span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.pipeline-footer {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.pipeline-assurance {
+  gap: 8px;
+  color: var(--text);
+}
+
+.vertical-slice-grid {
+  grid-template-columns: minmax(0, 2.35fr) minmax(320px, 0.85fr);
+}
+
+.backup-tools {
+  margin-top: 18px;
 }
 
 .support-card,
@@ -1986,7 +2095,16 @@ select {
 @media (max-width: 1280px) {
   .overview-grid,
   .support-card-grid,
-  .reporting-grid {
+  .reporting-grid,
+  .vertical-slice-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pipeline-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pipeline-arrow {
+    transform: rotate(90deg);
   }
 }

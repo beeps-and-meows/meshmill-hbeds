@@ -1,0 +1,1117 @@
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+PROPOSAL RESPONSE: HBEDS System
+
+Bidder’s Approach and Understanding
+California Department of Public Health
+Event ID# 0000037498
+
+Submitted by:
+
+Tiered World Studios
+jenjen@tieredworldstudios.com | https:/gov./tieredworldstudios.com
+Submission Date: April 2, 2026
+
+​
+
+1
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+2
+
+Executive Summary
+Tiered World Studios submits this proposal to provide the California Department of
+Public Health (CDPH) with a secure, scalable, and fully interoperable Hospital Bed and
+Emergency Medical Services Data System (HBEDS) platform in full compliance with
+California Assembly Bill 177 and CDC NHSN reporting requirements.
+The proposed system operates on an outbound data submission model, does not
+access hospital EHR systems, and does not transmit, process, or store Protected
+Health Information (PHI).
+
+Our Core Proposition
+Tiered World Studios has already solved the central technical challenge presented
+in this RFP. Through our production platform, MeshMill, we normalize
+heterogeneous data structures from disparate sources—each with different naming
+conventions, schemas, and internal formats—into a unified, real-time data model.
+This directly aligns with the HBEDS requirement to integrate across diverse
+EHR/EMR systems such as Epic, Oracle Cerner, MEDITECH, and others, each of
+which represents hospital bed availability differently. MeshMill addresses this
+complexity through a proven, production-ready architecture that standardizes data at
+ingestion and delivers consistent, real-time situational data for use by authorized
+personnel. It maintains strict system boundaries that exclude PHI and direct EHR
+access.
+This is not a conceptual approach. MeshMill is an operational platform currently
+performing real-time data normalization in production environments across multiple
+industries. These deployments address the same core technical challenge as
+HBEDS: transforming heterogeneous, system-specific data into a standardized,
+real-time operational dataset. This proven capability is directly transferable to
+healthcare interoperability use cases, including integration with diverse EHR/EMR
+systems.
+
+Tiered World Studios’ proposal provides CDPH with the following distinct advantages:
+●​ Proven heterogeneous data normalization architecture directly applicable to
+multi-EHR interoperability across California’s healthcare ecosystem
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+3
+
+●​ Cloud-native infrastructure hosted on AWS, supporting secure, real-time data
+ingestion and a web-based dashboard, and designed to support HIPAA-aligned
+deployments with Business Associate Agreement (BAA) execution
+●​ Scalable, repeatable hospital onboarding model based on a configuration-driven
+mapping framework that minimizes implementation time and variability
+●​ Advanced real-time dashboard with geospatial visualization capabilities, enabling
+enhanced situational awareness beyond baseline RFP requirements
+●​ Full platform ownership and control, eliminating third-party dependencies and
+ensuring compliance with RFP title and ownership requirements
+●​ FHIR-native integration strategy, enabling standardized, future-ready
+interoperability across all major California EHR systems
+
+Topic 1: Center for Disease Control and Prevention (CDC) Requirements
+Tiered World Studios understands that the objective of the Hospital Bed Emergency
+Data System (HBEDS) program is to establish a statewide operational platform. The
+platform provides accurate, timely, and actionable visibility into staffed bed availability by
+patient care type and level of service across hospitals and alternative care sites.
+Assembly Bill 177 authorizes CDPH to establish and operate this statewide healthcare
+bed capacity system. It requires hospitals, emergency departments, and behavioral
+health facilities to report bed availability by level of care, unit, and facility.
+This mandate reflects the critical role of real-time capacity visibility in patient outcomes
+and emergency response. As healthcare systems approach capacity thresholds, access
+to timely and accurate bed availability data becomes essential for patient routing,
+resource allocation, and coordinated response.
+HBEDS operationalizes this requirement as a continuous, statewide capability,
+delivering real-time data across California’s healthcare system.
+1.1 Platform Overview and Core Architecture
+To meet this objective, Tiered World Studios will deploy MeshMill, a production-ready
+SaaS platform with its proprietary M.A.R.I.O. Interoperability Engine at its core. The
+M.A.R.I.O. Interoperability Engine is designed to transform heterogeneous EHR/EMR
+data in real time into a unified statewide data model. This data is immediately usable for
+reporting and operational decision-making at scale. MeshMill is fully operated and
+controlled by Tiered World Studios. The platform is built without third-party
+dependencies, providing full control and stability. This structure supports accountability,
+reliability, and operational transparency.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+4
+
+1.2 EHR/EMR Integration Approach
+A core requirement of HBEDS is seamless integration with hospital Electronic Health
+Record (EHR) and Electronic Medical Record (EMR) systems to collect staffed bed
+availability data by bed type. The system is designed to receive this data through
+one-way, outbound transmissions from hospital systems and does not collect any
+Protected Health Information (PHI).
+MeshMill meets this requirement through an interoperability framework designed for
+compatibility with widely adopted healthcare data standards. As a result, the platform
+integrates with all EHR/EMR systems used across California, including Epic, Oracle
+Cerner, Meditech, and legacy platforms.
+Integration is rapid through a configuration-driven approach. Hospitals connect using
+existing standard interfaces without custom development. The scope of data transmitted
+to MeshMill is limited to staffed bed availability by configuring and mapping only
+required fields to the CDPH schema at the point of ingestion. Each hospital’s data
+structures are mapped through a one-time configuration process, enabling efficient
+onboarding at scale.
+MeshMill’s core architecture is designed to normalize heterogeneous data across
+disparate systems and is applied in this implementation using standards such as FHIR
+R4, HL7 v2, and SFTP.
+The platform supports multiple integration methods aligned with hospital capabilities:
+●​ FHIR R4 APIs for modern, standards-based interoperability
+●​ HL7 v2 messaging for compatibility with legacy systems
+●​ Secure File Transfer Protocol (SFTP) for batch data exchange
+●​ RESTful APIs for flexible, real-time integrations
+This multi-modal integration approach ensures compatibility with both modern and
+legacy systems.
+Data Scope and Data Controls​
+MeshMill is designed to collect only staffed bed availability data by bed type, limited to non-PHI
+operational capacity metrics as defined by CDPH.
+Data is received through one-way, outbound transmissions from hospital systems. MeshMill
+does not access hospital EHR systems and does not retrieve or query patient records.
+The platform explicitly defines which data elements are accepted and how they map to the
+CDPH schema. Only required fields are ingested. All other data elements are excluded at the
+point of ingestion.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+5
+
+This approach ensures that data collection is limited, controlled, and aligned with HBEDS
+requirements while eliminating the risk of unintended PHI exposure.
+
+1.3 Real-Time Operational Data Integration Across Diverse EHR Systems
+The following example illustrates how MeshMill integrates real-time data from diverse
+hospital systems into a unified statewide view for reporting and operational use.
+Data Flow
+A hospital using Epic securely transmits staffed bed availability and related data
+elements through FHIR APIs. Another hospital may transmit similar data using HL7 v2
+interfaces. Additional facilities may provide data through SFTP-based file exchanges.
+These heterogeneous data inputs arrive in different formats, structures, and naming
+conventions. MeshMill receives and ingests concurrent data streams from multiple
+facilities for downstream processing.
+Data Normalization
+MeshMill normalizes heterogeneous EHR/EMR data into a consistent statewide
+structure through a canonical data mapping architecture. Each hospital’s internal data
+structures are translated into a standardized schema through a one-time configuration
+process, establishing a consistent data foundation without ongoing customization.
+At the core of this process is the M.A.R.I.O. Interoperability Engine. It functions as a
+real-time data translation layer, resolving differences in formats, naming conventions,
+and data structures across systems such as Epic, Oracle Cerner, MEDITECH, and
+others.
+
+HBEDS presents this same architectural challenge within the healthcare domain, where
+different systems represent identical concepts using inconsistent structures and naming
+conventions.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+Source System Variability
+
+Source System
+
+Representation
+
+Canonical
+Representation
+
+Epic
+
+ICU_Available
+
+ICU Available Beds
+
+Oracle Cerner
+
+IntensiveCareOpen
+
+ICU Available Beds
+
+MEDITECH
+
+Open_ICU_Count
+
+ICU Available Beds
+
+Hospital A
+(internal)
+
+staffed_beds
+
+ICU Available Beds
+
+Hospital B
+(internal)
+
+open_capacity
+
+ICU Available Beds
+
+Hospital C
+(internal)
+
+available_census
+
+ICU Available Beds
+
+This approach enables a single, consistent statewide view of hospital capacity
+regardless of source system differences.
+
+6
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+7
+
+To address this variability, MeshMill applies a configuration-driven mapping approach.
+
+Component
+
+Approach
+
+Integration
+Methods
+
+FHIR R4 APIs where available; HL7 v2 and SFTP for legacy
+systems
+
+Data Mapping
+
+A per-hospital configuration layer maps local field names, bed
+definitions, and data structures to the CDPH canonical schema
+
+Validation
+
+Mapping configurations are validated during onboarding and
+operate continuously without manual intervention
+
+Change
+Management
+
+EHR changes are isolated to the mapping layer, eliminating the
+need for platform re-engineering
+
+Canonical Data
+Layer
+
+Serves as a unified source of truth supporting CDC NHSN
+reporting, CDPH dashboards, and historical data access
+
+M.A.R.I.O. translates and normalizes incoming data into a unified statewide schema in
+real time. It resolves structural and semantic differences without requiring
+system-specific customization or manual coordination. As a result, data is consistent,
+accurate, and comparable across facilities. This reduces integration complexity,
+shortens onboarding time, and lowers the risk of data inconsistency.
+Once validated, data processing is fully automated and continuous. MeshMill handles
+incoming data without manual intervention, supporting reliable and scalable integration
+across participating facilities.
+This architectural approach is not theoretical. MeshMill’s canonical mapping and
+normalization model has been proven in production environments where disparate
+systems represent similar concepts using different naming conventions, structures, and
+formats. While these implementations occur outside of healthcare, they address the
+same core challenge presented by HBEDS: translating system-specific representations
+into a consistent, normalized data model that supports downstream processing at scale.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+8
+
+Data Standardization and Scalability
+MeshMill applies standardized definitions to ensure consistency across all participating
+facilities. Bed types, capacity metrics, and reporting structures are aligned to a common
+statewide model. Equivalent data elements are interpreted consistently, regardless of
+how they are represented at the source system. Variations in terminology and reporting
+are resolved to a uniform definition aligned with CDPH requirements.
+This standardized model enables accurate aggregation and comparison across
+hospitals and regions. It supports consistent reporting and a clear statewide view of
+capacity. The platform applies these standards through a configuration-driven approach.
+New hospitals are onboarded using the same model, enabling scalable deployment
+across hundreds of facilities without additional customization.
+Data Validation and Quality Assurance
+MeshMill applies data validation processes to ensure the accuracy, consistency, and
+reliability of all collected data. Validation occurs in real time and includes field-level
+checks to confirm required data elements are present, correctly formatted, and within
+expected ranges. MeshMill also applies logical validation rules to ensure internal
+consistency. For example, available bed counts cannot exceed total capacity, and
+related data elements must align.
+The platform detects anomalies such as unexpected spikes, drops, or inconsistencies in
+reported data and flags them for review. When issues are identified, MeshMill initiates
+automated error handling, including record flagging, alert generation, and defined
+resolution workflows. All validation activities are logged and auditable, providing full
+traceability of data submissions. Continuous monitoring ensures rapid detection of data
+interruptions or integration failures, minimizing impact to data availability and reporting
+continuity.
+1.4 CDC NHSN Reporting and Compliance
+MeshMill will automate data formatting and submission to the CDC National Healthcare
+Safety Network (NHSN). Data validation is performed prior to submission to ensure
+accuracy and completeness. Required bed capacity data is transmitted at least twice
+daily in alignment with CDC NHSN requirements, with support for more frequent
+submissions as requirements evolve.
+All submissions are fully auditable, with comprehensive logging of transmission activity,
+including timestamps, record counts, and acknowledgment tracking. This provides full
+transparency and traceability.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+9
+
+MeshMill is designed to adapt to evolving CDC and CDPH requirements without system
+redesign or disruption to hospital operations. Its configuration-driven architecture
+enables updates to data elements, reporting formats, and submission protocols to be
+implemented efficiently.
+This automated and auditable reporting pipeline supports continuous compliance with
+CDC NHSN requirements while minimizing operational burden on participating hospitals
+and CDPH.
+1.5 System Reliability and Continuous Operation
+MeshMill provides 24/7 access to real-time bed availability data for CDPH and
+participating facilities.
+The platform continuously monitors data feeds and system health to detect
+interruptions, delays, or anomalies. If a hospital data feed is interrupted, MeshMill
+generates alerts and flags the issue for resolution. If a system component fails,
+automated recovery processes restore data ingestion and reporting without manual
+intervention.
+These mechanisms keep data current, reliable, and available for ongoing operations
+and emergency response.
+The platform is stress-tested under peak load conditions. It supports high-volume
+concurrent data ingestion and simultaneous user access. Testing scenarios simulate
+emergency conditions to validate system availability, responsiveness, and data integrity
+at scale.
+1.6 Disaster Recovery and Fault Handling​
+MeshMill is designed to recover automatically from common system and infrastructure
+failures:
+●​ If a server instance fails, traffic is automatically redirected to healthy instances
+●​ If a service becomes unavailable, it is automatically restarted and restored
+●​ If a data feed is interrupted, the system flags the issue and resumes ingestion
+once restored
+●​ If infrastructure components fail, redundant systems maintain continuity of
+operations
+●​ If data loss occurs, backups are used to restore data integrity
+These mechanisms allow the platform to continue operating without manual intervention
+and maintain availability during system disruptions.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+10
+
+1.7 Security and Authentication
+All data transmission uses HTTPS with TLS 1.3 encryption. FHIR API connections use
+OAuth 2.0 and OpenID Connect (OIDC) for authentication.
+Dashboard access is secured through Single Sign-On (SSO) using SAML 2.0 and
+OIDC/OAuth2. Multi-Factor Authentication (MFA) is enforced for all privileged access,
+sensitive data access, and official communication accounts. Role-based access control
+(RBAC) restricts users to only the data and functionality required for their role.
+The platform operates on a one-way, outbound data ingestion model and does not
+access hospital EHR systems. No Protected Health Information (PHI) is transmitted,
+processed, or stored. Hospitals control all data transmission through secure interfaces.
+The platform is hosted on AWS, which provides secure, HIPAA-eligible cloud
+infrastructure. Data is encrypted at rest, and audit logging is enabled across the
+platform. A Business Associate Agreement (BAA) is in place with AWS.
+Security is enforced at both the infrastructure and application levels. Authentication,
+access control, session management, MFA enforcement, and audit logging are
+managed within the application to ensure that security does not rely solely on the
+underlying cloud infrastructure.
+1.8 Summary
+Tiered World Studios will deliver a secure, scalable, and compliant HBEDS solution.
+The platform is designed to integrate with all EHR/EMR systems used across California
+and to continuously collect and validate CDC-required data at 15-minute intervals. It
+supports secure data exchange and will automate NHSN reporting.
+The platform will provide continuous, 24/7 access to real-time hospital bed data. CDPH
+and authorized stakeholders will have access to accurate, timely information to support
+coordinated, statewide healthcare operations.
+Key Differentiators
+●​ Integration framework designed for compatibility with all EHR/EMR systems used
+across California, including legacy platforms across large and small healthcare
+facilities
+●​ Fully automated, continuous data ingestion designed to eliminate manual
+reporting burden and reduce ongoing coordination between hospitals and the
+state
+●​ Proprietary M.A.R.I.O. Interoperability Engine that translates and normalizes
+heterogeneous EHR/EMR data into a unified schema in real time, reducing
+onboarding complexity and integration risk
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+11
+
+●​ Multi-region, high-availability cloud architecture designed to support continuous
+system operation during emergency events
+●​ Configuration-driven architecture that enables rapid adaptation to evolving CDC
+requirements without system disruption
+
+CDC & AB 177 Compliance Summary
+Requirement
+
+MeshMill Capability
+
+EHR/EMR Integration
+
+Supports FHIR R4 APIs, HL7 v2 messaging, RESTful
+APIs, and SFTP for seamless integration
+
+Support for All CA EHR
+Systems
+
+Standards-based interoperability compatible with
+Epic, Oracle Cerner, Meditech, and legacy systems
+
+CDC Data Elements (Bed
+Connectivity & Respiratory
+Reporting)
+
+Fully captures, normalizes, and validates all required
+CDC data elements including bed capacity,
+occupancy, ED status, and disease-specific metrics
+
+Data Collection Frequency
+
+Continuous data ingestion every 15 minutes, 24/7, in
+compliance with CDC cadence requirements and AB
+177
+
+Data Transmission Methods
+
+Secure transmission via SFTP, APIs, and FHIR-based
+exchange
+
+Security (SSO)
+
+Supports SAML 2.0, OpenID Connect (OIDC),
+OAuth2, MFA, and role-based access control (RBAC)
+
+NHSN Reporting
+
+Automated submission to CDC NHSN at least twice
+daily, with capability for more frequent submissions
+
+Future CDC Compliance
+
+Configuration-driven architecture enables rapid
+adaptation to evolving CDC and CDPH requirements
+without disruption
+
+24/7 Real-Time Availability
+
+Multi-region AWS architecture with high availability,
+automated failover, and continuous monitoring
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+12
+
+Topic 2: Program Requirements
+Tiered World Studios delivers a secure, web-based SaaS data platform. Hospitals, state
+agencies, and local partners access real-time staffed bed data through a responsive
+dashboard. MeshMill ingests, processes, and presents data for statewide visibility.
+
+2.1 Real-Time Dashboard and Visibility
+Capability
+The dashboard displays staffed bed availability by bed type across hospitals and care
+sites. Users view current capacity and system trends. Decision-makers act on real-time
+conditions.
+Usability
+The interface is intuitive. Users learn it quickly. Navigation remains consistent.
+Performance remains stable at scale under increasing data volume and user load.
+
+2.2 Filtering and Data Exploration
+Users filter data by hospital, bed type, and region. Views update instantly. Users focus
+on local, regional, or statewide conditions.
+The system highlights capacity gaps and available resources. Teams coordinate
+response actions using current data. MeshMill reports data only. It does not direct
+patient placement.
+
+2.3 Historical Data Access
+Users download historical data after enrollment. The system exports files in standard
+formats. Teams use data for reporting, planning, and analysis.
+
+2.4 Geospatial Visualization
+The platform displays data on an interactive map. Users view regional capacity in real
+time. Emergency teams identify constraints and available beds quickly.
+
+2.5 Access Management (24-Hour Provisioning)
+The system grants access within 24 hours of request. A centralized identity system
+manages all accounts.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+13
+
+Role-based access control restricts data by role and jurisdiction. Hospitals view only
+their data. State and regional users view broader datasets for coordination.
+Multi-factor authentication (MFA) protects privileged accounts and sensitive access.
+
+2.6 Participation Agreements
+The system captures participation agreements electronically. Hospitals and partners
+sign within the platform.
+The system stores signed documents securely. It transmits copies to CDPH for
+recordkeeping and audit.
+
+2.7 API Data Transmission (15-Minute Intervals)
+MeshMill transmits data to CDPH through secure APIs every 15 minutes. The system
+automates data transfers. Monitoring tools track delivery status and data integrity.
+Audit logs record all transactions. CDPH maintains continuous visibility into statewide
+capacity.
+
+2.8 Integration and Technical Support
+API documentation defines integration steps. A sandbox environment supports testing.
+Technical staff guide onboarding and interface setup. The support team assists with
+data access, system use, and troubleshooting.
+
+2.9 Help Desk and Tiered Support Model
+Tiered World Studios operates a 24/7 support model aligned with public health
+operations.
+Tier 1 – General Support​
+Response within 4 business hours​
+Handles access, navigation, and basic questions
+Tier 2 – Data and Integration Support​
+Response within 8 business hours​
+Handles data issues, API connections, and reporting
+Tier 3 – Critical Issues and Outages​
+Response within 2 hours, 24/7​
+Handles outages, failed transmissions, and real-time data disruption
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+14
+
+Escalation and Resolution​
+The system monitors all tickets. Teams escalate issues by severity. Engineers work
+until resolution. Critical issues receive immediate triage and sustained response until
+service restoration.
+Support Channels​
+Users contact support by email, phone, or ticketing system.
+Surge Operations​
+During declared emergencies, support capacity increases. Teams prioritize critical
+issues. Technical coverage expands to maintain system availability.
+
+2.10 Stakeholder Training and Webinars
+Tiered World Studios conducts webinars upon CDPH request. Sessions cover system
+use, data interpretation, and workflows. Stakeholders gain proficiency quickly.
+
+2.11 Summary
+This approach delivers a secure and scalable platform. The system supports real-time
+operations, data access, and statewide coordination.
+
+Key Differentiators
+●​ Role-based dashboard shows real-time bed availability. State and regional teams
+identify capacity constraints and coordinate response actions using live data.
+●​ The system grants user access within 24 hours. Secure controls protect data and
+limit visibility by role and jurisdiction.
+●​ MeshMill transmits data to CDPH every 15 minutes. CDPH maintains accurate,
+current statewide situational awareness without manual reporting.
+●​ The platform combines data access, visualization, and export. Teams use one
+system for real-time operations and historical analysis.
+Program Requirements Compliance Summary
+Requirement
+
+MeshMill Capability
+
+Web-Based Dashboard Secure, role-based platform accessible to hospitals and
+agencies
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+15
+
+Real-Time Bed
+Visibility
+
+Live dashboard displaying staffed bed availability by type
+
+Dashboard Filtering
+
+Filter by hospital, bed type, and region
+
+Historical Data Access
+
+Downloadable datasets post-enrollment
+
+User Access (24 hrs)
+
+Provisioning within 24 hours via centralized IAM
+
+MFA Security
+
+Enforced for privileged and sensitive access
+
+Participation
+Agreements
+
+Electronic collection and submission to CDPH
+
+CDPH Data
+Transmission
+
+API-based transmission every 15 minutes
+
+Help Desk Support
+
+Ticketing system, response SLAs, escalation
+
+Stakeholder Webinars
+
+On-demand training and onboarding sessions
+
+Topic 3. Hospital Requirements
+3.1 Outreach Plan and Enrollment Strategy
+Tiered World Studios executes a structured outreach plan aligned with CDPH priorities.
+Teams engage hospital leadership, IT staff, and administrators directly. Outreach
+activities drive program awareness and enrollment readiness.
+The team delivers a detailed activation plan within 30 days of contract execution,
+including enrollment timelines and annual targets.
+The program addresses onboarding as the primary risk to statewide adoption. It
+prioritizes rapid, scalable hospital integration. The onboarding model uses
+configuration-based data mapping to reduce custom development and accelerate
+integration.
+Teams onboard hospitals in parallel cohorts to accelerate statewide adoption. Progress
+tracking supports transparency and accountability.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+16
+
+3.2 Onboarding Approach and Timeline
+The onboarding process follows a standardized and repeatable model. Each hospital
+progresses through defined stages with minimal disruption to operations.
+●​ Week 1: Enrollment, kickoff, and access setup.
+●​ Week 2: Covers data integration, mapping, and validation.
+●​ Weeks 3–4: Testing, training, and go-live.
+Multiple hospitals move through onboarding concurrently. Cohort-based scheduling
+supports scale and predictable delivery timelines.
+3.3 Virtual Enrollment Sessions
+Teams conduct virtual enrollment sessions for each facility. Sessions walk through
+access setup, data integration, and reporting workflows.
+Staff receive step-by-step guidance during each session. Hospitals complete
+onboarding with clear understanding of system use and reporting expectations.
+3.4 Documentation and Onboarding Instructions
+The program includes structured onboarding materials for all participants.
+Documentation covers integration steps, user setup, and reporting requirements.
+Materials support both technical and non-technical users. Staff follow clear instructions
+during onboarding and ongoing operations.
+3.5 Hospital Coordination and Meetings
+Teams meet with hospital staff throughout onboarding and reporting cycles. Meetings
+address enrollment progress, technical requirements, and reporting expectations.
+Coordination includes collaboration with IT teams and EHR report writers. Teams review
+data extraction, mapping, validation, and data quality processes.
+
+3.6 Customer Support for IT and EHR Teams
+Support teams assist hospital IT staff and EHR report writers during onboarding and
+ongoing operations. Teams address integration issues, data submission, and
+troubleshooting.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+17
+
+Support includes ticketing workflows, response SLAs, escalation paths, and direct
+communication channels for urgent issues.
+3.7 Access Management for Hospital Users
+The program manages user onboarding and access control through a structured
+process. Teams assign roles based on responsibilities and organizational scope.
+Access aligns with security requirements and reporting roles. Staff maintain appropriate
+visibility across hospital and regional data.
+3.8 Training Materials and Resources
+The program includes training materials, demonstration videos, and user manuals.
+Content covers dashboard use, workflows, and data interpretation.
+Users access training content on demand. Materials update as features evolve and
+requirements change.
+3.9 Scalable Program Delivery
+The model supports onboarding across hundreds of facilities. Initial cohorts include
+approximately 215 hospitals in Year 1. Later phases expand to full statewide
+participation of up to 500 hospitals.
+Standardized workflows and centralized coordination support consistent delivery at
+scale. Parallel cohorts accelerate enrollment without increasing operational burden. The
+program supports high participation, consistent data quality, and reliable statewide
+reporting.
+
+Key Differentiators
+●​ The onboarding model scales parallel hospital enrollment to meet annual
+participation targets. Teams accelerate statewide adoption without capacity
+constraints or rollout delays.
+●​ Standardized onboarding and integration workflows limit burden on hospital IT
+teams. The model minimizes variability and lowers the risk of onboarding delays
+or integration issues.
+●​ The system automates reporting after onboarding. Hospitals do not submit data
+manually. The system lowers reporting errors and improves data consistency.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+18
+
+●​ A centralized support and training model strengthens hospital operations. It limits
+reliance on local resources and supports statewide scale without proportional
+staffing increases.
+
+Hospital Outreach & Training Compliance Summary
+Requirement
+
+Approach
+
+Outreach Plan & Enrollment
+Targets
+
+Phased rollout with parallel onboarding cohorts
+scaled to meet annual participation targets, with
+progress tracked and reported to CDPH
+
+Virtual Enrollment Sessions
+
+Structured onboarding sessions for all facilities
+
+Documentation &
+Instructions
+
+Technical guides, user instructions, reporting
+documentation
+
+IT & EHR Support
+
+Support for extraction, mapping, validation, and data
+quality assurance
+
+Hospital Coordination
+
+Scheduled and as-needed coordination with hospital
+staff to support onboarding progress, issue
+resolution, and ongoing alignment
+
+Access Management
+
+Role-based provisioning and secure onboarding
+
+Training Materials
+
+Videos, manuals, and on-demand resources
+
+Ongoing Support
+
+Ticketing system, SLAs, escalation, and direct
+support channels
+
+Topic 4. Coordination Requirements
+4.1 HBEDS Activation Plan
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+19
+
+Tiered World Studios delivers a detailed HBEDS Activation Plan within 30 days of
+contract execution. The plan defines the implementation schedule, key milestones, and
+coordination activities for program activation.
+The Activation Plan outlines a structured rollout model with defined phases for
+enrollment, integration, validation, and statewide readiness.
+HBEDS Activation Plan Phases
+●​ Phase 1: Program Initiation & Planning — Finalize scope, governance structure,
+and coordination framework with CDPH
+●​ Phase 2: Hospital Enrollment & Agreements — Execute participation
+agreements and initiate onboarding cohorts
+●​ Phase 3: Integration & Validation — Complete data mapping, system integration,
+and validation of reporting accuracy
+●​ Phase 4: Statewide Rollout & Readiness — Expand onboarding and confirm
+statewide operational readiness
+●​ Phase 5: Steady-State Operations — Transition to continuous automated
+reporting and ongoing support
+This phased plan provides clear accountability, measurable progress, and controlled
+statewide rollout
+Activation Milestones
+●​ Initial onboarding cohorts completed in alignment with Year 1 participation targets
+(approximately 215 hospitals)
+●​ Data integration and validation completed for participating hospitals
+●​ Automated reporting activated for enrolled facilities
+●​ Statewide participation targets achieved in alignment with program growth
+●​ Transition to steady-state operations
+These milestones provide CDPH with clear visibility into progress and readiness at each
+stage of implementation.
+
+4.2 Coordination and Governance
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+20
+
+Teams coordinate directly with CDPH staff, hospital networks, and partner organizations
+throughout program activation. The program follows a defined governance model with
+clear roles, escalation paths, and decision protocols.
+Teams conduct regular status meetings and milestone reviews. Coordination aligns
+enrollment progress, integration status, and reporting readiness.
+The governance model supports rapid issue resolution and continuous alignment with
+CDPH priorities.
+4.3 Automated Bed Reporting After Enrollment
+MeshMill automates bed reporting after hospital enrollment and validation. The system
+collects, processes, and transmits data continuously without manual input from hospital
+staff.
+Automated reporting delivers consistent, timely, and reliable data submission. Hospitals
+maintain reporting compliance without additional operational burden.
+Monitoring tools track data delivery and system performance. Support teams respond to
+disruptions to maintain continuous reporting.
+4.4 Transition to Steady-State Operations
+The program transitions hospitals from onboarding to steady-state operations through
+defined checkpoints. Teams validate data accuracy, confirm reporting performance, and
+verify system readiness.
+Once validated, hospitals operate in automated reporting mode with ongoing monitoring
+and support. CDPH maintains continuous visibility into statewide data.
+
+Key Differentiators
+●​ The Activation Plan defines structured phases and milestones. CDPH maintains
+clear visibility into progress, accountability, and statewide readiness.
+●​ A formal governance model defines roles, escalation pathways, and decision
+protocols. Teams resolve issues quickly and maintain alignment with CDPH.
+●​ Checkpoint-driven transitions move hospitals from onboarding to operations.
+Teams validate data accuracy and system readiness before full automation.
+●​ MeshMill automates bed reporting after validation. The system delivers reliable,
+real-time data without manual input.
+
+Bidder’s Approach and Understanding​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+​
+
+●​ A proactive coordination framework defines communication channels and
+escalation protocols. Teams maintain alignment across CDPH, regional
+stakeholders, and hospitals during operations.
+
+Coordination & Activation Compliance Summary
+Requirement
+
+Approach
+
+HBEDS Activation Plan
+
+Defines phased rollout with milestones and
+deliverables
+
+Participation
+Agreements
+
+Uses standardized language with CDPH coordination
+and tracking
+
+Coordination with
+CDPH
+
+Establishes governance model, meetings, and
+reporting
+
+Program Milestones
+
+Defines milestones for onboarding, validation, and
+readiness
+
+Automated Bed
+Reporting
+
+Automates continuous reporting after onboarding
+
+Transition to
+Operations
+
+Defines structured transition to steady-state
+
+21
+
+

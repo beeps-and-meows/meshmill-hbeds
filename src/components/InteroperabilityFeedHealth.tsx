@@ -71,6 +71,12 @@ export function InteroperabilityFeedHealth({
           <p title="Indicates real-time platform health, data feed reliability, and system performance.">
             Real-time platform health, data feed reliability, and system performance.
           </p>
+          <div className="architecture-link-row">
+            <span className="architecture-link-pill">Pipeline Stage 3</span>
+            <span className="architecture-link-copy">
+              Derived from ingestion reliability, validation health, and reporting-readiness checks.
+            </span>
+          </div>
         </div>
         <StatusPill tone={getTone(platformHealth)}>{platformHealth}</StatusPill>
       </div>

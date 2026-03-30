@@ -18,6 +18,7 @@ import { StatusPill } from './components/StatusPill';
 import { CaliforniaCapacityMap } from './components/CaliforniaCapacityMap';
 import { IncidentCoordination } from './components/IncidentCoordination';
 import { InteroperabilityFeedHealth } from './components/InteroperabilityFeedHealth';
+import { InteroperabilityPipeline } from './components/InteroperabilityPipeline';
 import { ScenarioSimulation } from './components/ScenarioSimulation';
 
 import { alerts, emsMetrics, hospitals, type BedType } from './lib/data';
@@ -545,112 +546,6 @@ export default function App() {
         </div>
       </section>
 
-      <section className="support-card-grid">
-        <div className="panel support-card">
-          <div className="section-head compact">
-            <div>
-              <h3>
-                <Clock3 size={18} />
-                Reporting Status
-              </h3>
-              <p>Real-time reporting status and compliance with CDPH and CDC/NHSN requirements.</p>
-            </div>
-            <StatusPill tone={scenario === 'degraded' ? 'amber' : 'green'}>
-              {scenario === 'degraded' ? 'At risk' : 'Compliant'}
-            </StatusPill>
-          </div>
-
-          <div className="reporting-grid">
-            <div className="reporting-item">
-              <strong>CDPH Reporting Status</strong>
-              <span>Last submission: 2:00 PM</span>
-              <span>Status: {scenario === 'degraded' ? 'Delayed review' : 'On time'}</span>
-              <span>Feed: Automated</span>
-            </div>
-            <div className="reporting-item">
-              <strong>CDPH Next Window</strong>
-              <span>Next due: 2:15 PM</span>
-              <span>Status: {scenario === 'degraded' ? 'Monitoring' : 'On track'}</span>
-              <span>Cadence: 15-minute target</span>
-            </div>
-            <div className="reporting-item">
-              <strong>NHSN Reporting</strong>
-              <span>Last submission: 8:00 AM</span>
-              <span>Status: {scenario === 'degraded' ? 'Pending ack' : 'Accepted by CDC'}</span>
-              <span>Submission: Automated</span>
-            </div>
-            <div className="reporting-item">
-              <strong>NHSN Next Window</strong>
-              <span>Next due: 8:00 PM</span>
-              <span>Status: {scenario === 'degraded' ? 'Reviewing' : 'On track'}</span>
-              <span>Cadence: Twice daily minimum</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel support-card">
-          <div className="section-head compact">
-            <div>
-              <h3>
-                <ShieldCheck size={18} />
-                Access &amp; Security
-              </h3>
-              <p>Authentication, access control, auditability, and session protections.</p>
-            </div>
-          </div>
-
-          <div className="security-list">
-            <div className="security-item">
-              <span>Authentication</span>
-              <strong>SSO + MFA</strong>
-            </div>
-            <div className="security-item">
-              <span>Access Control</span>
-              <strong>RBAC enforced</strong>
-            </div>
-            <div className="security-item">
-              <span>Audit Logging</span>
-              <strong>Enabled</strong>
-            </div>
-            <div className="security-item">
-              <span>Session Security</span>
-              <strong>Encrypted (TLS 1.2+)</strong>
-            </div>
-            <div className="security-item">
-              <span>User Scope</span>
-              <strong>Role- and jurisdiction-based</strong>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel support-card">
-          <div className="section-head compact">
-            <div>
-              <h3>
-                <CheckCircle2 size={18} />
-                Deployment Confidence
-              </h3>
-              <p>Evaluator-ready proof points that reduce perceived implementation risk.</p>
-            </div>
-          </div>
-
-          <div className="deployment-list">
-            <div>
-              <strong>Immediate readiness</strong>
-              <span>The platform is framed as a live operational system rather than a prototype workflow.</span>
-            </div>
-            <div>
-              <strong>Enterprise fit</strong>
-              <span>Visual language and reporting posture align with enterprise command-center dashboards.</span>
-            </div>
-            <div>
-              <strong>Validation range</strong>
-              <span>Deployment messaging retains the approximately 40-hospital to 400-hospital scaling proof point.</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section className="filters panel">
         <div className="section-head compact">
           <div>
@@ -716,7 +611,121 @@ export default function App() {
         </section>
       )}
 
-      <section className="main-grid">
+      <section className="reporting-strip panel">
+        <div className="section-head compact">
+          <div>
+            <h3>
+              <Clock3 size={18} />
+              Reporting Status
+            </h3>
+            <p>Automated statewide reporting posture for CDPH and CDC/NHSN workflows.</p>
+            <div className="architecture-link-row">
+              <span className="architecture-link-pill">Pipeline Stage 4</span>
+              <span className="architecture-link-copy">
+                Uses canonical mapping and validation outputs from the interoperability pipeline.
+              </span>
+            </div>
+          </div>
+          <StatusPill tone={scenario === 'degraded' ? 'amber' : 'green'}>
+            {scenario === 'degraded' ? 'At risk' : 'Compliant'}
+          </StatusPill>
+        </div>
+
+        <div className="reporting-grid">
+          <div className="reporting-item">
+            <strong>CDPH Reporting Status</strong>
+            <span>Last submission: 2:00 PM</span>
+            <span>Status: {scenario === 'degraded' ? 'Delayed review' : 'On time'}</span>
+            <span>Feed: Automated</span>
+          </div>
+          <div className="reporting-item">
+            <strong>CDPH Next Window</strong>
+            <span>Next due: 2:15 PM</span>
+            <span>Status: {scenario === 'degraded' ? 'Monitoring' : 'On track'}</span>
+            <span>Cadence: 15-minute target</span>
+          </div>
+          <div className="reporting-item">
+            <strong>NHSN Reporting</strong>
+            <span>Last submission: 8:00 AM</span>
+            <span>Status: {scenario === 'degraded' ? 'Pending ack' : 'Accepted by CDC'}</span>
+            <span>Submission: Automated</span>
+          </div>
+          <div className="reporting-item">
+            <strong>NHSN Next Window</strong>
+            <span>Next due: 8:00 PM</span>
+            <span>Status: {scenario === 'degraded' ? 'Reviewing' : 'On track'}</span>
+            <span>Cadence: Twice daily minimum</span>
+          </div>
+        </div>
+      </section>
+
+      <InteroperabilityPipeline />
+
+      <section className="support-card-grid">
+        <div className="panel support-card">
+          <div className="section-head compact">
+            <div>
+              <h3>
+                <ShieldCheck size={18} />
+                Access &amp; Security
+              </h3>
+              <p>Authentication, access control, auditability, and session protections.</p>
+            </div>
+          </div>
+
+          <div className="security-list">
+            <div className="security-item">
+              <span>Authentication</span>
+              <strong>SSO + MFA</strong>
+            </div>
+            <div className="security-item">
+              <span>Access Control</span>
+              <strong>RBAC enforced</strong>
+            </div>
+            <div className="security-item">
+              <span>Audit Logging</span>
+              <strong>Enabled</strong>
+            </div>
+            <div className="security-item">
+              <span>Session Security</span>
+              <strong>Encrypted (TLS 1.2+)</strong>
+            </div>
+            <div className="security-item">
+              <span>User Scope</span>
+              <strong>Role- and jurisdiction-based</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel support-card">
+          <div className="section-head compact">
+            <div>
+              <h3>
+                <CheckCircle2 size={18} />
+                Deployment Confidence
+              </h3>
+              <p>Evaluator-ready proof points that reduce perceived implementation risk.</p>
+            </div>
+          </div>
+
+          <div className="deployment-list">
+            <div>
+              <strong>Immediate readiness</strong>
+              <span>The platform is framed as a live operational system rather than a prototype workflow.</span>
+            </div>
+            <div>
+              <strong>Enterprise fit</strong>
+              <span>Visual language and reporting posture align with enterprise command-center dashboards.</span>
+            </div>
+            <div>
+              <strong>Validation range</strong>
+              <span>Deployment messaging retains the approximately 40-hospital to 400-hospital scaling proof point.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="main-grid vertical-slice-grid">
         <div className="left-stack">
           <CaliforniaCapacityMap hospitals={filteredHospitals} selectedBedType={bedType} />
 
@@ -872,7 +881,13 @@ export default function App() {
                   <Activity size={18} />
                   Live Alert Stream
                 </h3>
-                <p>Critical, warning, and informational operational updates.</p>
+                <p>Operational alerts generated from validated capacity, transport, and reporting signals.</p>
+                <div className="architecture-link-row">
+                  <span className="architecture-link-pill">Pipeline Stage 5</span>
+                  <span className="architecture-link-copy">
+                    Derived from normalized statewide data after validation and monitoring checks.
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -899,7 +914,13 @@ export default function App() {
                   <Ambulance size={18} />
                   EMS Metrics
                 </h3>
-                <p>Operational indicators relevant to patient movement and offload pressure.</p>
+                <p>EMS-facing indicators computed from the same validated operational feed used for statewide reporting.</p>
+                <div className="architecture-link-row">
+                  <span className="architecture-link-pill">Pipeline Stage 5</span>
+                  <span className="architecture-link-copy">
+                    Shows downstream transport pressure once source data has been normalized and quality-checked.
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -940,7 +961,9 @@ export default function App() {
         </div>
       </section>
 
-      <ScenarioSimulation scenario={scenario} onChangeScenario={setScenario} />
+      <div className="backup-tools">
+        <ScenarioSimulation scenario={scenario} onChangeScenario={setScenario} />
+      </div>
     </div>
   );
 }
