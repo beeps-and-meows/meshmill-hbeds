@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   SunMedium,
   TrendingUp,
+  TriangleAlert,
 } from 'lucide-react';
 
 import { LoginScreen } from './components/LoginScreen';
@@ -22,10 +23,13 @@ import { InteroperabilityPipeline } from './components/InteroperabilityPipeline'
 import { ScenarioSimulation } from './components/ScenarioSimulation';
 
 import { alerts, emsMetrics, hospitals, type BedType } from './lib/data';
+import { useApiData } from './hooks/useApiData';
+import type { FacilityRow } from './lib/api';
 
 type ThemeMode = 'dark' | 'light';
 type ScenarioMode = 'normal' | 'surge' | 'degraded' | 'incident';
 type OperationalState = 'CRITICAL' | 'SURGE' | 'WATCH' | 'NORMAL' | 'UNKNOWN';
+type DatasetId = 1 | 2 | 3 | 4;
 
 type RegionFilter =
   | 'All'
@@ -48,9 +52,23 @@ function formatClock(value: Date) {
   }).format(value);
 }
 
+function formatTime(iso: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
+function formatEventTitle(eventType: string) {
+  return eventType
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 function getStatusTone(status: string): 'green' | 'amber' | 'red' | 'slate' {
-  if (status === 'Normal') return 'green';
-  if (status === 'Surge') return 'amber';
+  if (status === 'Normal' || status === 'active') return 'green';
+  if (status === 'Surge' || status === 'degraded' || status === 'syncing') return 'amber';
   return 'red';
 }
 
@@ -58,6 +76,27 @@ function getAlertTone(level: string): 'green' | 'amber' | 'red' | 'blue' | 'slat
   if (level === 'critical') return 'red';
   if (level === 'warning') return 'amber';
   if (level === 'info') return 'blue';
+  return 'slate';
+}
+
+function getHeartbeatTone(status: string | undefined): 'green' | 'amber' | 'red' | 'slate' {
+  if (status === 'healthy') return 'green';
+  if (status === 'delayed') return 'amber';
+  if (status === 'missing') return 'red';
+  return 'slate';
+}
+
+function getReportingTone(status: string | undefined): 'green' | 'amber' | 'red' | 'slate' {
+  if (status === 'success') return 'green';
+  if (status === 'delayed') return 'amber';
+  if (status === 'failed') return 'red';
+  return 'slate';
+}
+
+function getIncidentTone(severity: string | undefined): 'green' | 'amber' | 'red' | 'slate' {
+  if (severity === 'critical' || severity === 'high') return 'red';
+  if (severity === 'medium') return 'amber';
+  if (severity === 'low') return 'green';
   return 'slate';
 }
 
@@ -181,6 +220,7 @@ export default function App() {
     return saved === 'light' ? 'light' : 'dark';
   });
   const [scenario, setScenario] = useState<ScenarioMode>('normal');
+  const [dataset, setDataset] = useState<DatasetId>(1);
   const [region, setRegion] = useState<RegionFilter>('All');
   const [bedType, setBedType] = useState<BedType | 'All'>('All');
   const [lastRefresh, setLastRefresh] = useState(() => new Date('2026-03-14T13:47:00'));
@@ -194,9 +234,146 @@ export default function App() {
     const timer = window.setInterval(() => {
       setLastRefresh((prev) => new Date(prev.getTime() + 15000));
     }, 3000);
-
     return () => window.clearInterval(timer);
   }, []);
+
+  // ── API data ──────────────────────────────────────────────────────────────
+  const apiState = useApiData(dataset);
+  const apiData = apiState.status === 'ready' ? apiState.data : null;
+
+  // ── API-derived values ────────────────────────────────────────────────────
+
+  // Merged facility rows for the API table
+  const mergedFacilityRows = useMemo((): FacilityRow[] | null => {
+    if (!apiData) return null;
+    const monMap = new Map(apiData.monitoring.map((m) => [m.facilityId, m]));
+    const repMap = new Map(apiData.reporting.map((r) => [r.facilityId, r]));
+    const incMap = new Map(apiData.incidents.map((i) => [i.facilityId, i]));
+    const onbMap = new Map(apiData.onboarding.map((o) => [o.facilityId, o]));
+
+    return apiData.facilities.map((f) => {
+      const mon = monMap.get(f.facilityId);
+      const rep = repMap.get(f.facilityId);
+      const inc = incMap.get(f.facilityId);
+      const onb = onbMap.get(f.facilityId);
+      let totalStaffed = 0, totalAvailable = 0;
+      Object.values(f.capacity ?? {}).forEach((b) => {
+        totalStaffed += b.staffed;
+        totalAvailable += b.available;
+      });
+      return {
+        facilityId: f.facilityId,
+        name: f.name,
+        region: f.region,
+        status: f.status,
+        divertStatus: f.divertStatus,
+        surgeMode: f.surgeMode,
+        heartbeatStatus: mon?.heartbeatStatus,
+        feedLatencyMs: mon?.feedLatencyMs,
+        retryCount: mon?.retryCount,
+        connectionMethod: mon?.connectionMethod,
+        lastHeartbeatAt: mon?.lastHeartbeatAt,
+        reportingStatus: rep?.status,
+        reportingLatency: rep?.latencySeconds,
+        validationStatus: rep?.validationStatus,
+        lastSubmission: rep?.lastSubmission,
+        totalStaffed,
+        totalAvailable,
+        onboardingState: onb?.state,
+        incidentSeverity: inc?.severity,
+        incidentStatus: inc?.status,
+      };
+    });
+  }, [apiData]);
+
+  // Filtered facility rows (by region)
+  const filteredApiRows = useMemo(() => {
+    if (!mergedFacilityRows) return null;
+    if (region === 'All') return mergedFacilityRows;
+    return mergedFacilityRows.filter((r) =>
+      r.region.toLowerCase().includes(region.toLowerCase()),
+    );
+  }, [mergedFacilityRows, region]);
+
+  // Ribbon inputs from API
+  const apiRibbonInputs = useMemo(() => {
+    if (!apiData) return null;
+    const hospitalsTotal = apiData.facilities.length;
+    const hospitalsOnDiversion = apiData.facilities.filter((f) => f.divertStatus).length;
+    const hospitalsReporting = apiData.reporting.filter((r) => r.status === 'success').length;
+    let icuStaffed = 0, icuAvailable = 0;
+    apiData.facilities.forEach((f) => {
+      const icu = f.capacity?.trauma_icu;
+      if (icu) { icuStaffed += icu.staffed; icuAvailable += icu.available; }
+    });
+    const icuCapacityPercent = icuStaffed
+      ? Math.round((icuAvailable / icuStaffed) * 100)
+      : null;
+    return { icuCapacityPercent, hospitalsOnDiversion, hospitalsReporting, hospitalsTotal };
+  }, [apiData]);
+
+  // Facility bucket counts from API
+  const apiFacilityBuckets = useMemo(() => {
+    if (!filteredApiRows) return null;
+    return filteredApiRows.reduce(
+      (acc, r) => {
+        if (r.status === 'offline' || r.divertStatus) acc.critical++;
+        else if (r.status === 'degraded' || r.surgeMode) acc.watch++;
+        else if (r.totalStaffed && r.totalAvailable / r.totalStaffed < 0.2) acc.strained++;
+        else acc.healthy++;
+        return acc;
+      },
+      { healthy: 0, watch: 0, strained: 0, critical: 0 },
+    );
+  }, [filteredApiRows]);
+
+  // State totals from API
+  const apiStateTotals = useMemo(() => {
+    if (!filteredApiRows) return null;
+    let staffed = 0, available = 0;
+    filteredApiRows.forEach((r) => { staffed += r.totalStaffed; available += r.totalAvailable; });
+    const occupied = staffed - available;
+    const availablePct = staffed ? Math.round((available / staffed) * 100) : 0;
+    const utilizationPct = staffed ? Math.round((occupied / staffed) * 100) : 0;
+    return { staffed, available, occupied, availablePct, utilizationPct, ambulanceQueue: null, avgWallTime: null };
+  }, [filteredApiRows]);
+
+  // Alert stream from API events
+  const apiAlerts = useMemo(() => {
+    if (!apiData || apiData.events.length === 0) return null;
+    const eventLevelMap: Record<string, 'critical' | 'warning' | 'info'> = {
+      heartbeat_missing: 'critical',
+      reporting_failure: 'critical',
+      wildfire_alert: 'critical',
+      earthquake_alert: 'critical',
+      flood_alert: 'warning',
+      heatwave_alert: 'warning',
+      capacity_alert: 'warning',
+      feed_retry: 'warning',
+      acs_activated: 'info',
+      routing_decision: 'info',
+    };
+    return apiData.events.slice(0, 8).map((e) => ({
+      id: e.eventId,
+      level: eventLevelMap[e.eventType] ?? 'info',
+      title: formatEventTitle(e.eventType),
+      detail: e.message,
+      time: formatTime(e.timestamp),
+    }));
+  }, [apiData]);
+
+  // Reporting stats from API
+  const apiReportingStats = useMemo(() => {
+    if (!apiData) return null;
+    const rep = apiData.reporting;
+    const success = rep.filter((r) => r.status === 'success').length;
+    const delayed = rep.filter((r) => r.status === 'delayed').length;
+    const failed = rep.filter((r) => r.status === 'failed').length;
+    const lastSuccessRecord = rep.find((r) => r.status === 'success');
+    return { success, delayed, failed, total: rep.length, lastSuccess: lastSuccessRecord?.lastSubmission };
+  }, [apiData]);
+
+  // ── Static-data derived values (kept for CaliforniaCapacityMap + fallback) ─
 
   const scenarioHospitals = useMemo(() => {
     return hospitals.map((hospital) => {
@@ -213,11 +390,7 @@ export default function App() {
           notes: `${hospital.notes} Surge scenario applied for demo.`,
           beds: hospital.beds.map((bed) => {
             const nextAvailable = Math.max(0, Math.floor(bed.available * 0.55));
-            return {
-              ...bed,
-              available: nextAvailable,
-              occupied: bed.staffed - nextAvailable,
-            };
+            return { ...bed, available: nextAvailable, occupied: bed.staffed - nextAvailable };
           }),
         };
       }
@@ -242,11 +415,7 @@ export default function App() {
         notes: `${hospital.notes} Incident command mode active.`,
         beds: hospital.beds.map((bed) => {
           const nextAvailable = Math.max(0, Math.floor(bed.available * 0.45));
-          return {
-            ...bed,
-            available: nextAvailable,
-            occupied: bed.staffed - nextAvailable,
-          };
+          return { ...bed, available: nextAvailable, occupied: bed.staffed - nextAvailable };
         }),
       };
     });
@@ -258,63 +427,23 @@ export default function App() {
 
   const scenarioAlerts = useMemo(() => {
     const baseAlerts = [...alerts];
-
     if (scenario === 'surge') {
-      return [
-        {
-          id: 'scenario-surge',
-          level: 'warning' as const,
-          title: 'Regional surge activated',
-          detail:
-            'ED boarding, ICU saturation, and ambulance queue times are elevated across multiple facilities.',
-          time: 'Now',
-        },
-        ...baseAlerts,
-      ];
+      return [{ id: 'scenario-surge', level: 'warning' as const, title: 'Regional surge activated', detail: 'ED boarding, ICU saturation, and ambulance queue times are elevated across multiple facilities.', time: 'Now' }, ...baseAlerts];
     }
-
     if (scenario === 'degraded') {
-      return [
-        {
-          id: 'scenario-degraded',
-          level: 'critical' as const,
-          title: 'Network degradation detected',
-          detail:
-            'One or more facility feeds are delayed. Fallback validation and transport coordination paths are active.',
-          time: 'Now',
-        },
-        ...baseAlerts,
-      ];
+      return [{ id: 'scenario-degraded', level: 'critical' as const, title: 'Network degradation detected', detail: 'One or more facility feeds are delayed. Fallback validation and transport coordination paths are active.', time: 'Now' }, ...baseAlerts];
     }
-
     if (scenario === 'incident') {
-      return [
-        {
-          id: 'scenario-incident',
-          level: 'critical' as const,
-          title: 'Incident mode active',
-          detail:
-            'Command posture elevated. Diversion and high-acuity routing should be coordinated centrally.',
-          time: 'Now',
-        },
-        ...baseAlerts,
-      ];
+      return [{ id: 'scenario-incident', level: 'critical' as const, title: 'Incident mode active', detail: 'Command posture elevated. Diversion and high-acuity routing should be coordinated centrally.', time: 'Now' }, ...baseAlerts];
     }
-
     return baseAlerts;
   }, [scenario]);
 
   const statewideTotals = useMemo(() => {
-    let staffed = 0;
-    let available = 0;
-    let occupied = 0;
-    let ambulanceQueue = 0;
-    let wallTimeTotal = 0;
-
+    let staffed = 0, available = 0, occupied = 0, ambulanceQueue = 0, wallTimeTotal = 0;
     filteredHospitals.forEach((hospital) => {
       ambulanceQueue += hospital.ambulanceQueue;
       wallTimeTotal += hospital.emsWallTimeMinutes;
-
       hospital.beds.forEach((bed) => {
         if (bedType === 'All' || bed.type === bedType) {
           staffed += bed.staffed;
@@ -323,50 +452,27 @@ export default function App() {
         }
       });
     });
-
-    const avgWallTime = filteredHospitals.length
-      ? Math.round(wallTimeTotal / filteredHospitals.length)
-      : 0;
-
+    const avgWallTime = filteredHospitals.length ? Math.round(wallTimeTotal / filteredHospitals.length) : 0;
     const availablePct = staffed ? Math.round((available / staffed) * 100) : 0;
     const utilizationPct = staffed ? Math.round((occupied / staffed) * 100) : 0;
-
-    return {
-      staffed,
-      available,
-      occupied,
-      availablePct,
-      utilizationPct,
-      ambulanceQueue,
-      avgWallTime,
-    };
+    return { staffed, available, occupied, availablePct, utilizationPct, ambulanceQueue, avgWallTime };
   }, [filteredHospitals, bedType]);
 
   const facilityBuckets = useMemo(() => {
     return filteredHospitals.reduce(
       (acc, hospital) => {
-        const relevantBeds =
-          bedType === 'All'
-            ? hospital.beds
-            : hospital.beds.filter((bed) => bed.type === bedType);
-        const staffed = relevantBeds.reduce((sum, bed) => sum + bed.staffed, 0);
-        const available = relevantBeds.reduce((sum, bed) => sum + bed.available, 0);
-        const availablePercent = staffed ? Math.round((available / staffed) * 100) : 0;
-        acc[getFacilityChipBucket(availablePercent)] += 1;
+        const relevantBeds = bedType === 'All' ? hospital.beds : hospital.beds.filter((b) => b.type === bedType);
+        const s = relevantBeds.reduce((sum, b) => sum + b.staffed, 0);
+        const a = relevantBeds.reduce((sum, b) => sum + b.available, 0);
+        const pct = s ? Math.round((a / s) * 100) : 0;
+        acc[getFacilityChipBucket(pct)] += 1;
         return acc;
       },
-      { healthy: 0, watch: 0, strained: 0, critical: 0 }
+      { healthy: 0, watch: 0, strained: 0, critical: 0 },
     );
   }, [filteredHospitals, bedType]);
 
-  const chartPoints = useMemo(() => {
-    if (scenario === 'incident') return [88, 84, 79, 73, 68, 64, 61];
-    if (scenario === 'surge') return [90, 87, 81, 76, 72, 69, 66];
-    if (scenario === 'degraded') return [91, 89, 85, 83, 80, 78, 76];
-    return [92, 90, 88, 86, 84, 83, 82];
-  }, [scenario]);
-
-  const ribbonInputs = useMemo(() => {
+  const staticRibbonInputs = useMemo(() => {
     const hospitalsTotal = filteredHospitals.length;
     const adultIcu = filteredHospitals.reduce(
       (totals, hospital) => {
@@ -375,37 +481,46 @@ export default function App() {
         totals.available += icu?.available ?? 0;
         return totals;
       },
-      { staffed: 0, available: 0 }
+      { staffed: 0, available: 0 },
     );
-
     const icuCapacityPercent = adultIcu.staffed
       ? Math.round((adultIcu.available / adultIcu.staffed) * 100)
       : null;
-
     const hospitalsOnDiversion = filteredHospitals.filter(
-      (hospital) => hospital.status === 'Diversion' || hospital.status === 'Internal Disaster'
+      (h) => h.status === 'Diversion' || h.status === 'Internal Disaster',
     ).length;
-
     const hospitalsReporting =
       scenario === 'degraded' && hospitalsTotal >= 4 ? hospitalsTotal - 1 : hospitalsTotal;
-
-    return {
-      icuCapacityPercent,
-      hospitalsOnDiversion,
-      hospitalsReporting,
-      hospitalsTotal,
-    };
+    return { icuCapacityPercent, hospitalsOnDiversion, hospitalsReporting, hospitalsTotal };
   }, [filteredHospitals, scenario]);
 
-  const ribbonStatus = useMemo(() => computeStatewideOperationalStatus(ribbonInputs), [ribbonInputs]);
+  const chartPoints = useMemo(() => {
+    if (scenario === 'incident') return [88, 84, 79, 73, 68, 64, 61];
+    if (scenario === 'surge') return [90, 87, 81, 76, 72, 69, 66];
+    if (scenario === 'degraded') return [91, 89, 85, 83, 80, 78, 76];
+    return [92, 90, 88, 86, 84, 83, 82];
+  }, [scenario]);
+
+  // ── Effective values: prefer API, fall back to static ─────────────────────
+
+  const effectiveRibbonInputs = apiRibbonInputs ?? staticRibbonInputs;
+  const ribbonStatus = useMemo(
+    () => computeStatewideOperationalStatus(effectiveRibbonInputs),
+    [effectiveRibbonInputs],
+  );
+
+  const effectiveTotals = apiStateTotals ?? statewideTotals;
+  const effectiveBuckets = apiFacilityBuckets ?? facilityBuckets;
+  const effectiveAlerts = apiAlerts ?? scenarioAlerts;
+
   const latestUpdateLabel = formatClock(lastRefresh);
   const activeFeedHealth =
     scenario === 'degraded'
       ? 'Feed validation active on delayed facilities.'
       : 'Automated reporting is advancing continuously across the network.';
 
-  const bedCensusStatus = getBedCensusStatus(statewideTotals.availablePct);
-  const capacityStatus = getCapacityPressureStatus(statewideTotals.utilizationPct);
+  const bedCensusStatus = getBedCensusStatus(effectiveTotals.availablePct);
+  const capacityStatus = getCapacityPressureStatus(effectiveTotals.utilizationPct);
 
   if (!isAuthenticated) {
     return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
@@ -422,6 +537,11 @@ export default function App() {
           <span>Hospitals Reporting (Live): {ribbonStatus.metrics.hospitalsReporting}</span>
           <span>Hospitals on Diversion: {ribbonStatus.metrics.hospitalsOnDiversion}</span>
           <span>ICU Capacity: {ribbonStatus.metrics.icuCapacityPercent}</span>
+          {apiData && (
+            <span className="ribbon-dataset-tag">
+              Dataset {dataset} · {apiData.facilities.length} facilities
+            </span>
+          )}
         </div>
       </section>
 
@@ -469,10 +589,10 @@ export default function App() {
               </div>
 
               <div className="snapshot-chip-row">
-                <StatusPill tone="green">{facilityBuckets.healthy} Healthy Facilities</StatusPill>
-                <StatusPill tone="amber">{facilityBuckets.watch} Watch</StatusPill>
-                <StatusPill tone="amber">{facilityBuckets.strained} Strained</StatusPill>
-                <StatusPill tone="red">{facilityBuckets.critical} Critical</StatusPill>
+                <StatusPill tone="green">{effectiveBuckets.healthy} Healthy Facilities</StatusPill>
+                <StatusPill tone="amber">{effectiveBuckets.watch} Watch</StatusPill>
+                <StatusPill tone="amber">{effectiveBuckets.strained} Strained</StatusPill>
+                <StatusPill tone="red">{effectiveBuckets.critical} Critical</StatusPill>
               </div>
             </div>
 
@@ -483,10 +603,10 @@ export default function App() {
                   <StatusPill tone={bedCensusStatus.tone}>{bedCensusStatus.label}</StatusPill>
                 </div>
                 <div className="stat-value">
-                  {formatNumber(statewideTotals.occupied)} / {formatNumber(statewideTotals.available)} /{' '}
-                  {formatNumber(statewideTotals.staffed)}
+                  {formatNumber(effectiveTotals.occupied)} / {formatNumber(effectiveTotals.available)} /{' '}
+                  {formatNumber(effectiveTotals.staffed)}
                 </div>
-                <div className="stat-helper">{statewideTotals.availablePct}% available across staffed beds</div>
+                <div className="stat-helper">{effectiveTotals.availablePct}% available across staffed beds</div>
               </div>
 
               <div className="stat-card tone-blue">
@@ -494,25 +614,35 @@ export default function App() {
                   <div className="stat-label">Capacity Pressure</div>
                   <StatusPill tone={capacityStatus.tone}>{capacityStatus.label}</StatusPill>
                 </div>
-                <div className="stat-value">{statewideTotals.utilizationPct}%</div>
+                <div className="stat-value">{effectiveTotals.utilizationPct}%</div>
                 <div className="stat-helper">System-wide staffed bed utilization</div>
               </div>
 
               <div className="stat-card tone-amber">
                 <div className="stat-label">Ambulance Queue</div>
-                <div className="stat-value">{formatNumber(statewideTotals.ambulanceQueue)}</div>
+                <div className="stat-value">
+                  {effectiveTotals.ambulanceQueue != null
+                    ? formatNumber(effectiveTotals.ambulanceQueue)
+                    : '—'}
+                </div>
                 <div className="stat-helper">Queued transports across selected facilities</div>
               </div>
 
               <div className="stat-card tone-red">
                 <div className="stat-label">EMS Offload Time</div>
-                <div className="stat-value">{statewideTotals.avgWallTime}m</div>
+                <div className="stat-value">
+                  {effectiveTotals.avgWallTime != null ? `${effectiveTotals.avgWallTime}m` : '—'}
+                </div>
                 <div className="stat-helper">Average time-to-offload under active conditions</div>
               </div>
             </div>
           </div>
 
-          <InteroperabilityFeedHealth scenario={scenario} />
+          <InteroperabilityFeedHealth
+            scenario={scenario}
+            monitoring={apiData?.monitoring}
+            reporting={apiData?.reporting}
+          />
         </div>
 
         <div className="overview-side">
@@ -538,7 +668,13 @@ export default function App() {
               </div>
               <div className="freshness-card">
                 <span className="mini-label">Hospital API stream</span>
-                <strong>{scenario === 'degraded' ? '35 live / 5 validating' : '40 live / 0 delayed'}</strong>
+                <strong>
+                  {apiData
+                    ? `${apiData.monitoring.filter((m) => m.heartbeatStatus === 'healthy').length} live / ${apiData.monitoring.filter((m) => m.heartbeatStatus !== 'healthy').length} delayed`
+                    : scenario === 'degraded'
+                      ? '35 live / 5 validating'
+                      : '40 live / 0 delayed'}
+                </strong>
                 <span>EHR integrations keep normalized operational objects moving in real time.</span>
               </div>
             </div>
@@ -611,6 +747,38 @@ export default function App() {
         </section>
       )}
 
+      {/* Disaster banner — shown when API returns active disaster scenarios */}
+      {apiData && apiData.disasters.length > 0 && (
+        <section className="panel scenario-banner scenario-incident">
+          <div className="disaster-banner-head">
+            <TriangleAlert size={16} />
+            <strong>Active Disaster Scenarios ({apiData.disasters.length})</strong>
+          </div>
+          <div className="disaster-list">
+            {apiData.disasters.map((d) => (
+              <div key={d.scenarioId} className="disaster-item">
+                <StatusPill
+                  tone={
+                    d.severity === 'critical'
+                      ? 'red'
+                      : d.severity === 'warning'
+                        ? 'amber'
+                        : 'slate'
+                  }
+                >
+                  {d.severity}
+                </StatusPill>
+                <span>
+                  <strong>{d.hazardType.charAt(0).toUpperCase() + d.hazardType.slice(1)}</strong>
+                  {' — '}
+                  {d.affectedRegions.join(', ')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="reporting-strip panel">
         <div className="section-head compact">
           <div>
@@ -626,36 +794,104 @@ export default function App() {
               </span>
             </div>
           </div>
-          <StatusPill tone={scenario === 'degraded' ? 'amber' : 'green'}>
-            {scenario === 'degraded' ? 'At risk' : 'Compliant'}
+          <StatusPill
+            tone={
+              apiReportingStats
+                ? apiReportingStats.failed > 0
+                  ? 'red'
+                  : apiReportingStats.delayed > 0
+                    ? 'amber'
+                    : 'green'
+                : scenario === 'degraded'
+                  ? 'amber'
+                  : 'green'
+            }
+          >
+            {apiReportingStats
+              ? apiReportingStats.failed > 0
+                ? 'Failures detected'
+                : apiReportingStats.delayed > 0
+                  ? 'Delays detected'
+                  : 'Compliant'
+              : scenario === 'degraded'
+                ? 'At risk'
+                : 'Compliant'}
           </StatusPill>
         </div>
 
         <div className="reporting-grid">
-          <div className="reporting-item">
-            <strong>CDPH Reporting Status</strong>
-            <span>Last submission: 2:00 PM</span>
-            <span>Status: {scenario === 'degraded' ? 'Delayed review' : 'On time'}</span>
-            <span>Feed: Automated</span>
-          </div>
-          <div className="reporting-item">
-            <strong>CDPH Next Window</strong>
-            <span>Next due: 2:15 PM</span>
-            <span>Status: {scenario === 'degraded' ? 'Monitoring' : 'On track'}</span>
-            <span>Cadence: 15-minute target</span>
-          </div>
-          <div className="reporting-item">
-            <strong>NHSN Reporting</strong>
-            <span>Last submission: 8:00 AM</span>
-            <span>Status: {scenario === 'degraded' ? 'Pending ack' : 'Accepted by CDC'}</span>
-            <span>Submission: Automated</span>
-          </div>
-          <div className="reporting-item">
-            <strong>NHSN Next Window</strong>
-            <span>Next due: 8:00 PM</span>
-            <span>Status: {scenario === 'degraded' ? 'Reviewing' : 'On track'}</span>
-            <span>Cadence: Twice daily minimum</span>
-          </div>
+          {apiReportingStats ? (
+            <>
+              <div className="reporting-item">
+                <strong>CDPH Reporting — Success</strong>
+                <span>{apiReportingStats.success} facilities reporting on time</span>
+                <span>
+                  Status:{' '}
+                  {apiReportingStats.failed === 0 && apiReportingStats.delayed === 0
+                    ? 'All feeds current'
+                    : 'Some feeds affected'}
+                </span>
+                <span>Feed: Automated</span>
+              </div>
+              <div className="reporting-item">
+                <strong>CDPH Reporting — Delayed</strong>
+                <span>{apiReportingStats.delayed} facilities delayed</span>
+                <span>
+                  Status: {apiReportingStats.delayed > 0 ? 'Monitoring' : 'On track'}
+                </span>
+                <span>Cadence: 15-minute target</span>
+              </div>
+              <div className="reporting-item">
+                <strong>NHSN Reporting — Failures</strong>
+                <span>{apiReportingStats.failed} facilities failed</span>
+                <span>
+                  Status:{' '}
+                  {apiReportingStats.failed > 0 ? 'Intervention required' : 'Accepted by CDC'}
+                </span>
+                <span>Submission: Automated</span>
+              </div>
+              <div className="reporting-item">
+                <strong>Reporting Coverage</strong>
+                <span>
+                  {apiReportingStats.success} / {apiReportingStats.total} facilities submitting
+                </span>
+                <span>
+                  Last success:{' '}
+                  {apiReportingStats.lastSuccess
+                    ? formatTime(apiReportingStats.lastSuccess)
+                    : 'N/A'}
+                </span>
+                <span>Cadence: Twice daily minimum</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="reporting-item">
+                <strong>CDPH Reporting Status</strong>
+                <span>Last submission: 2:00 PM</span>
+                <span>Status: {scenario === 'degraded' ? 'Delayed review' : 'On time'}</span>
+                <span>Feed: Automated</span>
+              </div>
+              <div className="reporting-item">
+                <strong>CDPH Next Window</strong>
+                <span>Next due: 2:15 PM</span>
+                <span>Status: {scenario === 'degraded' ? 'Monitoring' : 'On track'}</span>
+                <span>Cadence: 15-minute target</span>
+              </div>
+              <div className="reporting-item">
+                <strong>NHSN Reporting</strong>
+                <span>Last submission: 8:00 AM</span>
+                <span>Status: {scenario === 'degraded' ? 'Pending ack' : 'Accepted by CDC'}</span>
+                <span>Submission: Automated</span>
+              </div>
+              <div className="reporting-item">
+                <strong>NHSN Next Window</strong>
+                <span>Next due: 8:00 PM</span>
+                <span>Status: {scenario === 'degraded' ? 'Reviewing' : 'On track'}</span>
+                <span>Cadence: Twice daily minimum</span>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
@@ -674,26 +910,11 @@ export default function App() {
           </div>
 
           <div className="security-list">
-            <div className="security-item">
-              <span>Authentication</span>
-              <strong>SSO + MFA</strong>
-            </div>
-            <div className="security-item">
-              <span>Access Control</span>
-              <strong>RBAC enforced</strong>
-            </div>
-            <div className="security-item">
-              <span>Audit Logging</span>
-              <strong>Enabled</strong>
-            </div>
-            <div className="security-item">
-              <span>Session Security</span>
-              <strong>Encrypted (TLS 1.2+)</strong>
-            </div>
-            <div className="security-item">
-              <span>User Scope</span>
-              <strong>Role- and jurisdiction-based</strong>
-            </div>
+            <div className="security-item"><span>Authentication</span><strong>SSO + MFA</strong></div>
+            <div className="security-item"><span>Access Control</span><strong>RBAC enforced</strong></div>
+            <div className="security-item"><span>Audit Logging</span><strong>Enabled</strong></div>
+            <div className="security-item"><span>Session Security</span><strong>Encrypted (TLS 1.2+)</strong></div>
+            <div className="security-item"><span>User Scope</span><strong>Role- and jurisdiction-based</strong></div>
           </div>
         </div>
 
@@ -729,79 +950,188 @@ export default function App() {
         <div className="left-stack">
           <CaliforniaCapacityMap hospitals={filteredHospitals} selectedBedType={bedType} />
 
-          <div className="panel">
-            <div className="section-head">
-              <div>
-                <h3>
-                  <Building2 size={18} />
-                  Facility Operational View
-                </h3>
-                <p>Real-time staffed-bed availability, status, EMS pressure, and reporting health.</p>
+          {/* API Facility Table — shown when live data is available */}
+          {filteredApiRows ? (
+            <div className="panel">
+              <div className="section-head">
+                <div>
+                  <h3>
+                    <Building2 size={18} />
+                    Facility Operational View
+                  </h3>
+                  <p>Live status, monitoring health, reporting posture, and capacity from M.A.R.I.O.</p>
+                </div>
+                <StatusPill tone="slate">{filteredApiRows.length} facilities in scope</StatusPill>
               </div>
-              <StatusPill tone="slate">{filteredHospitals.length} facilities in scope</StatusPill>
+
+              <div className="hospital-table-wrap">
+                <table className="hospital-table">
+                  <thead>
+                    <tr>
+                      <th>Facility</th>
+                      <th>Status</th>
+                      <th>Heartbeat</th>
+                      <th>Reporting</th>
+                      <th>Capacity</th>
+                      <th>Onboarding</th>
+                      <th>Incident</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredApiRows.map((row) => {
+                      const availPct = row.totalStaffed
+                        ? Math.round((row.totalAvailable / row.totalStaffed) * 100)
+                        : 0;
+                      return (
+                        <tr key={row.facilityId}>
+                          <td>
+                            <div className="facility-title">{row.name}</div>
+                            <div className="facility-sub">
+                              {row.region} · {row.facilityId}
+                              {row.divertStatus && (
+                                <span className="tag-divert"> · Divert</span>
+                              )}
+                              {row.surgeMode && (
+                                <span className="tag-surge"> · Surge</span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <StatusPill tone={getStatusTone(row.status)}>
+                              {row.status}
+                            </StatusPill>
+                          </td>
+                          <td>
+                            <StatusPill tone={getHeartbeatTone(row.heartbeatStatus)}>
+                              {row.heartbeatStatus ?? '—'}
+                            </StatusPill>
+                            {row.feedLatencyMs != null && (
+                              <div className="muted">{row.feedLatencyMs}ms</div>
+                            )}
+                            {row.retryCount != null && row.retryCount > 0 && (
+                              <div className="muted">{row.retryCount} retries</div>
+                            )}
+                          </td>
+                          <td>
+                            <StatusPill tone={getReportingTone(row.reportingStatus)}>
+                              {row.reportingStatus ?? '—'}
+                            </StatusPill>
+                            {row.lastSubmission && (
+                              <div className="muted">{formatTime(row.lastSubmission)}</div>
+                            )}
+                          </td>
+                          <td>
+                            <strong>{row.totalAvailable} / {row.totalStaffed}</strong>
+                            <div className="muted">{availPct}% available</div>
+                          </td>
+                          <td>
+                            {row.onboardingState ? (
+                              <StatusPill
+                                tone={
+                                  row.onboardingState === 'validated'
+                                    ? 'green'
+                                    : row.onboardingState === 'failed'
+                                      ? 'red'
+                                      : 'amber'
+                                }
+                              >
+                                {row.onboardingState}
+                              </StatusPill>
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
+                          <td>
+                            {row.incidentSeverity ? (
+                              <>
+                                <StatusPill tone={getIncidentTone(row.incidentSeverity)}>
+                                  {row.incidentSeverity}
+                                </StatusPill>
+                                <div className="muted">{row.incidentStatus}</div>
+                              </>
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
+          ) : (
+            /* Static fallback table */
+            <div className="panel">
+              <div className="section-head">
+                <div>
+                  <h3>
+                    <Building2 size={18} />
+                    Facility Operational View
+                  </h3>
+                  <p>Real-time staffed-bed availability, status, EMS pressure, and reporting health.</p>
+                </div>
+                <StatusPill tone="slate">{filteredHospitals.length} facilities in scope</StatusPill>
+              </div>
 
-            <div className="hospital-table-wrap">
-              <table className="hospital-table">
-                <thead>
-                  <tr>
-                    <th>Facility</th>
-                    <th>Status</th>
-                    <th>Reporting</th>
-                    <th>Available / Staffed</th>
-                    <th>Boarding</th>
-                    <th>EMS</th>
-                    <th>Last refresh</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredHospitals.map((hospital) => {
-                    const relevantBeds =
-                      bedType === 'All'
-                        ? hospital.beds
-                        : hospital.beds.filter((bed) => bed.type === bedType);
-
-                    const staffed = relevantBeds.reduce((sum, bed) => sum + bed.staffed, 0);
-                    const available = relevantBeds.reduce((sum, bed) => sum + bed.available, 0);
-
-                    return (
-                      <tr key={hospital.id}>
-                        <td>
-                          <div className="facility-title">{hospital.name}</div>
-                          <div className="facility-sub">
-                            {hospital.county} County · {hospital.region} · Trauma {hospital.traumaLevel}
-                          </div>
-                        </td>
-                        <td>
-                          <StatusPill tone={getStatusTone(hospital.status)}>{hospital.status}</StatusPill>
-                        </td>
-                        <td>
-                          <div>{hospital.reportingMethod}</div>
-                          <div className="muted">{hospital.ehr}</div>
-                        </td>
-                        <td>
-                          <strong>
-                            {available} / {staffed}
-                          </strong>
-                        </td>
-                        <td>{hospital.boardingPatients}</td>
-                        <td>
-                          <div>{hospital.emsWallTimeMinutes} min</div>
-                          <div className="muted">{hospital.ambulanceQueue} queued</div>
-                        </td>
-                        <td>
-                          <div className="refresh-stamp">{formatClock(new Date(hospital.lastUpdated))}</div>
-                          <div className="muted">auto-ingested</div>
-                        </td>
-                        <td className="notes-cell">{hospital.notes}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="hospital-table-wrap">
+                <table className="hospital-table">
+                  <thead>
+                    <tr>
+                      <th>Facility</th>
+                      <th>Status</th>
+                      <th>Reporting</th>
+                      <th>Available / Staffed</th>
+                      <th>Boarding</th>
+                      <th>EMS</th>
+                      <th>Last refresh</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHospitals.map((hospital) => {
+                      const relevantBeds =
+                        bedType === 'All'
+                          ? hospital.beds
+                          : hospital.beds.filter((bed) => bed.type === bedType);
+                      const staffed = relevantBeds.reduce((sum, bed) => sum + bed.staffed, 0);
+                      const available = relevantBeds.reduce((sum, bed) => sum + bed.available, 0);
+                      return (
+                        <tr key={hospital.id}>
+                          <td>
+                            <div className="facility-title">{hospital.name}</div>
+                            <div className="facility-sub">
+                              {hospital.county} County · {hospital.region} · Trauma {hospital.traumaLevel}
+                            </div>
+                          </td>
+                          <td>
+                            <StatusPill tone={getStatusTone(hospital.status)}>{hospital.status}</StatusPill>
+                          </td>
+                          <td>
+                            <div>{hospital.reportingMethod}</div>
+                            <div className="muted">{hospital.ehr}</div>
+                          </td>
+                          <td>
+                            <strong>{available} / {staffed}</strong>
+                          </td>
+                          <td>{hospital.boardingPatients}</td>
+                          <td>
+                            <div>{hospital.emsWallTimeMinutes} min</div>
+                            <div className="muted">{hospital.ambulanceQueue} queued</div>
+                          </td>
+                          <td>
+                            <div className="refresh-stamp">{formatClock(new Date(hospital.lastUpdated))}</div>
+                            <div className="muted">auto-ingested</div>
+                          </td>
+                          <td className="notes-cell">{hospital.notes}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="chart-card">
             <div className="section-head">
@@ -813,14 +1143,8 @@ export default function App() {
                 <p>Illustrative availability trend across the current scenario.</p>
               </div>
               <div className="legend-group">
-                <span>
-                  <i className="legend-dot blue" />
-                  Available capacity
-                </span>
-                <span>
-                  <i className="legend-dot amber" />
-                  Stress threshold
-                </span>
+                <span><i className="legend-dot blue" />Available capacity</span>
+                <span><i className="legend-dot amber" />Stress threshold</span>
               </div>
             </div>
 
@@ -833,39 +1157,19 @@ export default function App() {
             >
               <line x1="40" y1="170" x2="680" y2="170" stroke="var(--line)" />
               <line x1="40" y1="40" x2="40" y2="170" stroke="var(--line)" />
-
-              <line
-                x1="40"
-                y1="95"
-                x2="680"
-                y2="95"
-                stroke="var(--amber)"
-                strokeDasharray="6 6"
-                opacity="0.7"
-              />
+              <line x1="40" y1="95" x2="680" y2="95" stroke="var(--amber)" strokeDasharray="6 6" opacity="0.7" />
 
               {chartPoints.map((point, index) => {
                 const x = 40 + index * 106;
                 const y = 170 - point;
                 const next = chartPoints[index + 1];
-
                 return (
                   <g key={index}>
                     {next !== undefined && (
-                      <line
-                        x1={x}
-                        y1={y}
-                        x2={40 + (index + 1) * 106}
-                        y2={170 - next}
-                        stroke="var(--blue)"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                      />
+                      <line x1={x} y1={y} x2={40 + (index + 1) * 106} y2={170 - next} stroke="var(--blue)" strokeWidth="4" strokeLinecap="round" />
                     )}
                     <circle cx={x} cy={y} r="5" fill="var(--blue)" />
-                    <text x={x} y="192" textAnchor="middle" className="chart-label">
-                      H{index + 1}
-                    </text>
+                    <text x={x} y="192" textAnchor="middle" className="chart-label">H{index + 1}</text>
                   </g>
                 );
               })}
@@ -885,14 +1189,16 @@ export default function App() {
                 <div className="architecture-link-row">
                   <span className="architecture-link-pill">Pipeline Stage 5</span>
                   <span className="architecture-link-copy">
-                    Derived from normalized statewide data after validation and monitoring checks.
+                    {apiAlerts
+                      ? `${apiAlerts.length} events from M.A.R.I.O. event stream`
+                      : 'Derived from normalized statewide data after validation and monitoring checks.'}
                   </span>
                 </div>
               </div>
             </div>
 
             <div className="alert-list">
-              {scenarioAlerts.map((alert) => (
+              {effectiveAlerts.map((alert) => (
                 <div key={alert.id} className={`alert-item ${alert.level}`}>
                   <div>
                     <div className="alert-title">{alert.title}</div>
@@ -932,10 +1238,7 @@ export default function App() {
                     <div className="metric-value">{item.value}</div>
                     <span>{item.trend}</span>
                   </div>
-
-                  <StatusPill
-                    tone={item.tone === 'good' ? 'green' : item.tone === 'warn' ? 'amber' : 'red'}
-                  >
+                  <StatusPill tone={item.tone === 'good' ? 'green' : item.tone === 'warn' ? 'amber' : 'red'}>
                     {item.tone}
                   </StatusPill>
                 </div>
@@ -962,7 +1265,13 @@ export default function App() {
       </section>
 
       <div className="backup-tools">
-        <ScenarioSimulation scenario={scenario} onChangeScenario={setScenario} />
+        <ScenarioSimulation
+          scenario={scenario}
+          onChangeScenario={setScenario}
+          dataset={dataset}
+          onChangeDataset={setDataset}
+          apiStatus={apiState.status}
+        />
       </div>
     </div>
   );

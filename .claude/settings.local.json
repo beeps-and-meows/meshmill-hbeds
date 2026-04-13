@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(curl -s \"http://localhost:8000/onboarding/status?dataset=2\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} records'\\); print\\(json.dumps\\(d[0], indent=2\\)\\)\")",
+      "Bash(curl -s \"http://localhost:8000/events?dataset=3\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} events'\\); print\\(json.dumps\\(d[0], indent=2\\)\\)\")",
+      "Bash(curl -s \"http://localhost:8000/events?dataset=1\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} events'\\); [print\\(e['eventType'], '-', e['facilityId']\\) for e in d]\")",
+      "Bash(curl -s \"http://localhost:8000/disaster/status?dataset=3\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
+      "Bash(curl -s \"http://localhost:8000/disaster/status?dataset=4\")",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s \"http://localhost:8000/facilities?dataset=1&status=degraded\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} degraded facilities'\\); [print\\(' -', f['facilityId'], f['name']\\) for f in d]\")",
+      "Bash(curl -s \"http://localhost:8000/support/incidents?dataset=4&severity=critical\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} critical incidents'\\); [print\\(' -', i['incidentId'], i['status']\\) for i in d]\")",
+      "Bash(curl -s \"http://localhost:8000/monitoring/status?dataset=2&region=Los%20Angeles\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} LA monitoring records'\\); [print\\(' -', m['facilityId'], m['heartbeatStatus']\\) for m in d]\")",
+      "Bash(pkill -f \"tsx server/index.ts\")",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
