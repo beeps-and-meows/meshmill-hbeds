@@ -19,7 +19,8 @@
       "Bash(curl -s \"http://localhost:8000/monitoring/status?dataset=2&region=Los%20Angeles\")",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} LA monitoring records'\\); [print\\(' -', m['facilityId'], m['heartbeatStatus']\\) for m in d]\")",
       "Bash(pkill -f \"tsx server/index.ts\")",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)"
     ]
   }
 }
