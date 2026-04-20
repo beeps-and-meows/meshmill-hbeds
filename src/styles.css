@@ -263,6 +263,65 @@ h1 {
   gap: 14px;
 }
 
+.login-role-section {
+  margin-top: 24px;
+}
+
+.login-role-head {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.login-role-head span,
+.login-select {
+  color: var(--muted);
+}
+
+.login-role-grid,
+.facility-detail-grid,
+.acs-list {
+  display: grid;
+  gap: 14px;
+}
+
+.login-role-grid,
+.facility-detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.role-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--panel-soft);
+  color: var(--text);
+  text-align: left;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.role-card.is-active,
+.secondary-btn.is-active {
+  border-color: rgba(83, 163, 255, 0.34);
+  background: rgba(83, 163, 255, 0.12);
+}
+
+.role-card span {
+  color: var(--muted);
+  display: block;
+  line-height: 1.4;
+}
+
+.login-select,
+.demo-inline-select {
+  display: grid;
+  gap: 8px;
+  font-size: 0.9rem;
+  min-width: 240px;
+}
+
 .demo-creds > div {
   flex: 1;
   padding: 14px 16px;
@@ -304,6 +363,12 @@ h1 {
 .ghost-btn {
   background: var(--button-secondary-bg);
   color: var(--button-secondary-text);
+}
+
+.view-toggle {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .secondary-btn:hover,
@@ -509,6 +574,10 @@ select {
   border-collapse: collapse;
   table-layout: fixed;
   background: rgba(255, 255, 255, 0.02);
+}
+
+.placement-table {
+  min-width: 880px;
 }
 
 .hospital-table th,
@@ -999,6 +1068,31 @@ select {
   line-height: 1.5;
 }
 
+.placement-summary-card,
+.acs-item {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-soft);
+  padding: 16px;
+}
+
+.acs-item {
+  display: grid;
+  gap: 8px;
+}
+
+.acs-item span {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.acs-item-head {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
 /* Operational intelligence */
 
 .operational-intelligence {
@@ -1465,9 +1559,11 @@ select {
   }
 
   .feature-grid,
+  .login-role-grid,
   .alignment-grid,
   .hero-metrics,
-  .mini-grid {
+  .mini-grid,
+  .facility-detail-grid {
     grid-template-columns: 1fr;
   }
 

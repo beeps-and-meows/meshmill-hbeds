@@ -30,6 +30,7 @@ type ThemeMode = 'dark' | 'light';
 type ScenarioMode = 'normal' | 'surge' | 'degraded' | 'incident';
 type OperationalState = 'CRITICAL' | 'SURGE' | 'WATCH' | 'NORMAL' | 'UNKNOWN';
 type DatasetId = 1 | 2 | 3 | 4;
+type UserRole = 'facility' | 'state';
 
 type RegionFilter =
   | 'All'
@@ -213,8 +214,59 @@ function getFacilityChipBucket(availablePercent: number) {
   return 'healthy';
 }
 
+function getHospitalCapacity(hospital: (typeof hospitals)[number], selectedBedType: BedType | 'All') {
+  if (selectedBedType === 'All') {
+    const staffed = hospital.beds.reduce((sum, bed) => sum + bed.staffed, 0);
+    const available = hospital.beds.reduce((sum, bed) => sum + bed.available, 0);
+    return { staffed, available };
+  }
+
+  const matchingBed = hospital.beds.find((bed) => bed.type === selectedBedType);
+  return {
+    staffed: matchingBed?.staffed ?? 0,
+    available: matchingBed?.available ?? 0,
+  };
+}
+
+const alternateCareSites = [
+  {
+    id: 'acs-sacramento',
+    name: 'Sacramento Civic Overflow Site',
+    region: 'Northern',
+    status: 'Standby',
+    mode: 'Medical / low-acuity overflow',
+    trigger: 'Activates when med/surg occupancy remains above 90% for 2 hours.',
+  },
+  {
+    id: 'acs-fresno',
+    name: 'Central Valley Flex Care Pavilion',
+    region: 'Central',
+    status: 'Warm',
+    mode: 'Step-down and post-acute overflow',
+    trigger: 'Supports coordinated decompression from Fresno-area hospitals.',
+  },
+  {
+    id: 'acs-la',
+    name: 'Los Angeles Regional ACS',
+    region: 'Los Angeles',
+    status: 'Active',
+    mode: 'Alternate care and EMS staging',
+    trigger: 'Visible to state coordination for surge routing and staging decisions.',
+  },
+  {
+    id: 'acs-san-diego',
+    name: 'San Diego Coastal Recovery Site',
+    region: 'San Diego',
+    status: 'Standby',
+    mode: 'Behavioral health and recovery overflow',
+    trigger: 'Contextual overflow option when psych-safe placement becomes constrained.',
+  },
+] as const;
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeRole, setActiveRole] = useState<UserRole>('facility');
+  const [selectedFacilityId, setSelectedFacilityId] = useState(hospitals[0]?.id ?? '');
   const [theme, setTheme] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('hbeds-theme');
     return saved === 'light' ? 'light' : 'dark';
@@ -425,6 +477,49 @@ export default function App() {
     return scenarioHospitals.filter((hospital) => region === 'All' || hospital.region === region);
   }, [scenarioHospitals, region]);
 
+  const selectedFacility =
+    scenarioHospitals.find((hospital) => hospital.id === selectedFacilityId) ?? scenarioHospitals[0];
+
+  const facilityLens = useMemo(() => {
+    const relevantBeds =
+      bedType === 'All'
+        ? selectedFacility.beds
+        : selectedFacility.beds.filter((bed) => bed.type === bedType);
+
+    const staffed = relevantBeds.reduce((sum, bed) => sum + bed.staffed, 0);
+    const available = relevantBeds.reduce((sum, bed) => sum + bed.available, 0);
+    const occupied = staffed - available;
+    const availablePct = staffed ? Math.round((available / staffed) * 100) : 0;
+    const utilizationPct = staffed ? Math.round((occupied / staffed) * 100) : 0;
+
+    return { staffed, available, occupied, availablePct, utilizationPct };
+  }, [selectedFacility, bedType]);
+
+  const placementRows = useMemo(() => {
+    return scenarioHospitals
+      .filter((hospital) => hospital.id !== selectedFacility.id)
+      .map((hospital) => {
+        const { staffed, available } = getHospitalCapacity(hospital, bedType);
+        const availablePct = staffed ? Math.round((available / staffed) * 100) : 0;
+        return {
+          id: hospital.id,
+          name: hospital.name,
+          region: hospital.region,
+          status: hospital.status,
+          available,
+          staffed,
+          availablePct,
+        };
+      })
+      .sort((a, b) => b.available - a.available);
+  }, [scenarioHospitals, selectedFacility.id, bedType]);
+
+  const contextualAlternateCareSites = useMemo(() => {
+    return alternateCareSites.filter(
+      (site) => site.region === selectedFacility.region || site.status === 'Active'
+    );
+  }, [selectedFacility.region]);
+
   const scenarioAlerts = useMemo(() => {
     const baseAlerts = [...alerts];
     if (scenario === 'surge') {
@@ -521,9 +616,449 @@ export default function App() {
 
   const bedCensusStatus = getBedCensusStatus(effectiveTotals.availablePct);
   const capacityStatus = getCapacityPressureStatus(effectiveTotals.utilizationPct);
+  const facilityBedCensusStatus = getBedCensusStatus(facilityLens.availablePct);
+  const facilityCapacityStatus = getCapacityPressureStatus(facilityLens.utilizationPct);
+  const facilityAlerts = effectiveAlerts.filter(
+    (alert) =>
+      alert.detail.includes(selectedFacility.region) ||
+      alert.detail.includes(selectedFacility.name.split(' ')[0]) ||
+      alert.level !== 'info'
+  );
 
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
+    return (
+      <LoginScreen
+        facilities={hospitals.map((facility) => ({
+          id: facility.id,
+          name: facility.name,
+          region: facility.region,
+        }))}
+        onLogin={({ role, facilityId }) => {
+          const facility =
+            hospitals.find((hospital) => hospital.id === facilityId) ?? hospitals[0];
+          setActiveRole(role);
+          setSelectedFacilityId(facilityId);
+          setRegion(role === 'state' ? 'All' : facility.region);
+          setIsAuthenticated(true);
+        }}
+      />
+    );
+  }
+
+  if (activeRole === 'facility') {
+    return (
+      <div className="app-shell">
+        <section className={`state-ribbon ribbon-${selectedFacility.status.toLowerCase() === 'normal' ? 'normal' : 'watch'}`}>
+          <div className="state-ribbon-top">
+            <StatusPill tone={getStatusTone(selectedFacility.status)}>{selectedFacility.status}</StatusPill>
+            <span>
+              Facility operations view scoped to {selectedFacility.name} with placement-aware,
+              limited cross-facility visibility.
+            </span>
+          </div>
+          <div className="state-ribbon-meta">
+            <span>Facility: {selectedFacility.name}</span>
+            <span>Ambulance queue: {selectedFacility.ambulanceQueue}</span>
+            <span>EMS offload: {selectedFacility.emsWallTimeMinutes} min</span>
+            <span>Cross-facility visibility: placement signals only</span>
+          </div>
+        </section>
+
+        <section className="topbar platform-header">
+          <div className="header-stack">
+            <div className="eyebrow operational">
+              <ShieldCheck size={16} />
+              Facility operations view
+            </div>
+            <h1>HBEDS Operational Platform</h1>
+            <div className="header-powered">Powered by MeshMill&apos;s M.A.R.I.O. Interoperability Engine</div>
+            <p className="subtitle header-tagline">
+              Own-hospital operations with controlled cross-facility placement awareness for
+              transfer, intake, and surge decision support.
+            </p>
+          </div>
+
+          <div className="topbar-actions">
+            <div className="view-toggle">
+              <button
+                className="secondary-btn is-active"
+                type="button"
+                onClick={() => setActiveRole('facility')}
+              >
+                Facility Operations
+              </button>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={() => {
+                  setActiveRole('state');
+                  setRegion('All');
+                }}
+              >
+                State Coordination
+              </button>
+            </div>
+
+            <label className="demo-inline-select">
+              Facility context
+              <select
+                value={selectedFacilityId}
+                onChange={(e) => setSelectedFacilityId(e.target.value)}
+              >
+                {scenarioHospitals.map((facility) => (
+                  <option key={facility.id} value={facility.id}>
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button
+              className="theme-toggle"
+              type="button"
+              onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+              aria-label="Toggle color mode"
+            >
+              {theme === 'dark' ? <SunMedium size={16} /> : <Moon size={16} />}
+              <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            </button>
+
+            <button className="secondary-btn" type="button" onClick={() => setIsAuthenticated(false)}>
+              Return to login
+            </button>
+          </div>
+        </section>
+
+        <section className="filters panel">
+          <div className="section-head compact">
+            <div>
+              <h3>
+                <Activity size={18} />
+                Placement Lens
+              </h3>
+              <p>
+                Focus own-hospital operations and limited placement visibility by care need.
+              </p>
+            </div>
+          </div>
+
+          <div className="filter-row">
+            <label>
+              Care need
+              <select value={bedType} onChange={(e) => setBedType(e.target.value as BedType | 'All')}>
+                <option value="All">All bed types</option>
+                <option value="Adult ICU">Adult ICU</option>
+                <option value="Medical Surgical">Medical Surgical</option>
+                <option value="Emergency Department">Emergency Department</option>
+                <option value="Pediatric ICU">Pediatric ICU</option>
+                <option value="NICU">NICU</option>
+                <option value="Psych">Psych</option>
+                <option value="Burn">Burn</option>
+                <option value="Isolation">Isolation</option>
+              </select>
+            </label>
+
+            <div className="filter-note">
+              <ShieldCheck size={16} />
+              Other hospitals expose only status and capacity signals relevant to patient placement.
+            </div>
+          </div>
+        </section>
+
+        <section className="overview-grid">
+          <div className="overview-main">
+            <div className="hero-panel glass">
+              <div className="section-head compact">
+                <div>
+                  <h3>
+                    <Building2 size={18} />
+                    Facility Operational Snapshot
+                  </h3>
+                  <p>
+                    Real-time view of staffed bed availability, facility status, and EMS pressure
+                    for {selectedFacility.name}.
+                  </p>
+                </div>
+                <StatusPill tone="slate">
+                  {bedType === 'All' ? 'All care settings' : `${bedType} placement lens`}
+                </StatusPill>
+              </div>
+
+              <div className="hero-metrics">
+                <div className="stat-card tone-green">
+                  <div className="stat-topline">
+                    <div className="stat-label">Available / Staffed</div>
+                    <StatusPill tone={facilityBedCensusStatus.tone}>
+                      {facilityBedCensusStatus.label}
+                    </StatusPill>
+                  </div>
+                  <div className="stat-value">
+                    {formatNumber(facilityLens.available)} / {formatNumber(facilityLens.staffed)}
+                  </div>
+                  <div className="stat-helper">
+                    {facilityLens.availablePct}% immediately available in current scope
+                  </div>
+                </div>
+
+                <div className="stat-card tone-blue">
+                  <div className="stat-topline">
+                    <div className="stat-label">Facility Status</div>
+                    <StatusPill tone={getStatusTone(selectedFacility.status)}>
+                      {selectedFacility.status}
+                    </StatusPill>
+                  </div>
+                  <div className="stat-value">{selectedFacility.boardingPatients}</div>
+                  <div className="stat-helper">Boarding patients influencing operational flow</div>
+                </div>
+
+                <div className="stat-card tone-amber">
+                  <div className="stat-topline">
+                    <div className="stat-label">Ambulance Queue</div>
+                    <StatusPill tone={facilityCapacityStatus.tone}>
+                      {facilityCapacityStatus.label}
+                    </StatusPill>
+                  </div>
+                  <div className="stat-value">{selectedFacility.ambulanceQueue}</div>
+                  <div className="stat-helper">Units awaiting handoff at this facility</div>
+                </div>
+
+                <div className="stat-card tone-red">
+                  <div className="stat-label">EMS Offload Time</div>
+                  <div className="stat-value">{selectedFacility.emsWallTimeMinutes}m</div>
+                  <div className="stat-helper">
+                    Current offload time with automated refresh at {formatClock(lastRefresh)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="overview-side">
+            <div className="panel">
+              <div className="section-head compact">
+                <div>
+                  <h3>
+                    <ShieldCheck size={18} />
+                    Role-Aware Visibility
+                  </h3>
+                  <p>RBAC framing for the facility demo path.</p>
+                </div>
+              </div>
+
+              <div className="security-list">
+                <div className="security-item">
+                  <span>Own hospital detail</span>
+                  <strong>Full operational view</strong>
+                </div>
+                <div className="security-item">
+                  <span>Other hospitals</span>
+                  <strong>Availability + status only</strong>
+                </div>
+                <div className="security-item">
+                  <span>Alternate care sites</span>
+                  <strong>Contextual overflow only</strong>
+                </div>
+                <div className="security-item">
+                  <span>EMS workflow</span>
+                  <strong>Assisted placement awareness</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="main-grid vertical-slice-grid">
+          <div className="left-stack">
+            <div className="panel">
+              <div className="section-head">
+                <div>
+                  <h3>
+                    <BedDouble size={18} />
+                    Own Hospital Detail
+                  </h3>
+                  <p>Staffed bed availability by bed type, EMS wait conditions, and local notes.</p>
+                </div>
+                <StatusPill tone="slate">
+                  Last sync {formatClock(new Date(selectedFacility.lastUpdated))}
+                </StatusPill>
+              </div>
+
+              <div className="facility-detail-grid">
+                <div className="bed-breakdown">
+                  <div className="bed-breakdown-head">
+                    <h4>Bed Availability by Type</h4>
+                    <span className="tooltip-icon" title="Local facility view retains complete service-line detail.">
+                      Own view
+                    </span>
+                  </div>
+                  {selectedFacility.beds.map((bed) => {
+                    const pct = bed.staffed ? Math.round((bed.available / bed.staffed) * 100) : 0;
+                    return (
+                      <div key={bed.type} className="bed-breakdown-row">
+                        <div>
+                          <strong>{bed.type}</strong>
+                          <span>
+                            {bed.available} available / {bed.staffed} staffed
+                          </span>
+                        </div>
+                        <div className={`bed-breakdown-value tone-${getStatusTone(pct >= 25 ? 'Normal' : pct >= 10 ? 'Surge' : 'Diversion')}`}>
+                          {pct}%
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="placement-summary-card">
+                  <div className="map-metric-grid">
+                    <div className="map-metric">
+                      <Ambulance size={16} />
+                      <div>
+                        <span>Ambulances Queued</span>
+                        <strong>{selectedFacility.ambulanceQueue}</strong>
+                      </div>
+                    </div>
+                    <div className="map-metric">
+                      <Clock3 size={16} />
+                      <div>
+                        <span>EMS Wall Time</span>
+                        <strong>{selectedFacility.emsWallTimeMinutes} min</strong>
+                      </div>
+                    </div>
+                    <div className="map-metric">
+                      <TriangleAlert size={16} />
+                      <div>
+                        <span>Operational Notes</span>
+                        <strong>{selectedFacility.notes}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="section-head">
+                <div>
+                  <h3>
+                    <TrendingUp size={18} />
+                    Placement Network View
+                  </h3>
+                  <p>
+                    Cross-facility visibility is restricted to placement-relevant signals only:
+                    bed type, availability, and status.
+                  </p>
+                </div>
+                <StatusPill tone="blue">Limited RBAC scope</StatusPill>
+              </div>
+
+              <div className="hospital-table-wrap">
+                <table className="hospital-table placement-table">
+                  <thead>
+                    <tr>
+                      <th>Facility</th>
+                      <th>Region</th>
+                      <th>Status</th>
+                      <th>{bedType === 'All' ? 'Available / Staffed' : `${bedType} availability`}</th>
+                      <th>Placement Signal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {placementRows.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          <div className="facility-title">{row.name}</div>
+                          <div className="facility-sub">Cross-facility visibility only</div>
+                        </td>
+                        <td>{row.region}</td>
+                        <td>
+                          <StatusPill tone={getStatusTone(row.status)}>{row.status}</StatusPill>
+                        </td>
+                        <td>
+                          <strong>{row.available} / {row.staffed}</strong>
+                          <div className="muted">{row.availablePct}% available</div>
+                        </td>
+                        <td>
+                          <StatusPill tone={row.availablePct >= 25 ? 'green' : row.availablePct >= 10 ? 'amber' : 'red'}>
+                            {row.availablePct >= 25 ? 'Placement option' : row.availablePct >= 10 ? 'Limited' : 'Constrained'}
+                          </StatusPill>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="right-stack">
+            <div className="panel">
+              <div className="section-head compact">
+                <div>
+                  <h3>
+                    <Activity size={18} />
+                    Facility Alerts
+                  </h3>
+                  <p>Operational awareness relevant to this facility workflow.</p>
+                </div>
+              </div>
+
+              <div className="alert-list">
+                {facilityAlerts.slice(0, 4).map((alert) => (
+                  <div key={alert.id} className={`alert-item ${alert.level}`}>
+                    <div>
+                      <div className="alert-title">{alert.title}</div>
+                      <p>{alert.detail}</p>
+                    </div>
+                    <div className="right-align">
+                      <StatusPill tone={getAlertTone(alert.level)}>{alert.level}</StatusPill>
+                      <span className="alert-time">{alert.time}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="section-head compact">
+                <div>
+                  <h3>
+                    <Ambulance size={18} />
+                    Contextual Overflow Options
+                  </h3>
+                  <p>Alternate care sites are surfaced only when they matter to local placement decisions.</p>
+                </div>
+              </div>
+
+              <div className="acs-list">
+                {contextualAlternateCareSites.map((site) => (
+                  <div key={site.id} className="acs-item">
+                    <div className="acs-item-head">
+                      <strong>{site.name}</strong>
+                      <StatusPill tone={site.status === 'Active' ? 'green' : site.status === 'Warm' ? 'amber' : 'slate'}>
+                        {site.status}
+                      </StatusPill>
+                    </div>
+                    <span>{site.mode}</span>
+                    <span>{site.trigger}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="backup-tools">
+          <ScenarioSimulation
+            scenario={scenario}
+            onChangeScenario={setScenario}
+            dataset={dataset}
+            onChangeDataset={setDataset}
+            apiStatus={apiState.status}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -549,17 +1084,31 @@ export default function App() {
         <div className="header-stack">
           <div className="eyebrow operational">
             <ShieldCheck size={16} />
-            Secure operational view
+            State coordination view
           </div>
           <h1>HBEDS Operational Platform</h1>
           <div className="header-powered">Powered by MeshMill&apos;s M.A.R.I.O. Interoperability Engine</div>
           <p className="subtitle header-tagline">
-            Real-time staffed bed availability, multi-hospital coordination, and statewide
-            operational intelligence across hospitals and EMS.
+            Aggregated statewide visibility across participating hospitals, embedded EMS
+            coordination workflows, and alternate care site awareness for command-level decision
+            support.
           </p>
         </div>
 
         <div className="topbar-actions">
+          <div className="view-toggle">
+            <button
+              className="secondary-btn"
+              type="button"
+              onClick={() => setActiveRole('facility')}
+            >
+              Facility Operations
+            </button>
+            <button className="secondary-btn is-active" type="button">
+              State Coordination
+            </button>
+          </div>
+
           <button
             className="theme-toggle"
             type="button"
@@ -572,6 +1121,10 @@ export default function App() {
 
           <button className="secondary-btn" type="button">
             Export summary
+          </button>
+
+          <button className="secondary-btn" type="button" onClick={() => setIsAuthenticated(false)}>
+            Return to login
           </button>
         </div>
       </section>
@@ -1241,6 +1794,42 @@ export default function App() {
                   <StatusPill tone={item.tone === 'good' ? 'green' : item.tone === 'warn' ? 'amber' : 'red'}>
                     {item.tone}
                   </StatusPill>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="section-head compact">
+              <div>
+                <h3>
+                  <Building2 size={18} />
+                  Alternate Care Sites
+                </h3>
+                <p>State coordination includes operational visibility into alternate care sites for routing and decompression decisions.</p>
+              </div>
+            </div>
+
+            <div className="acs-list">
+              {alternateCareSites.map((site) => (
+                <div key={site.id} className="acs-item">
+                  <div className="acs-item-head">
+                    <strong>{site.name}</strong>
+                    <StatusPill
+                      tone={
+                        site.status === 'Active'
+                          ? 'green'
+                          : site.status === 'Warm'
+                            ? 'amber'
+                            : 'slate'
+                      }
+                    >
+                      {site.status}
+                    </StatusPill>
+                  </div>
+                  <span>{site.region}</span>
+                  <span>{site.mode}</span>
+                  <span>{site.trigger}</span>
                 </div>
               ))}
             </div>
