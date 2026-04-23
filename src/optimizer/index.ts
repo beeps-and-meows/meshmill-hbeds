@@ -8,8 +8,10 @@
  */
 
 export type {
+  PatientId,
+  HospitalId,
+  PatientAcuity,
   Patient,
-  PatientCareType,
   Hospital,
   Assignment,
   OptimizerResult,
@@ -18,22 +20,26 @@ export type {
 export { travelTimes, getTravelTime, DEFAULT_TRAVEL_TIME } from "./travelTimes";
 
 export {
-  isEligible,
+  isIcuPatient,
+  countsAgainstEd,
+  effectiveEdCapacity,
+  effectiveIcuCapacity,
+  isHospitalEligible,
   hasCapacity,
-  countAssigned,
-  availableSlots,
-  allPatientsAssigned,
+  calculateAssignmentLoad,
+  isValidAssignment,
   isFeasible,
 } from "./constraints";
 
 export {
+  computeObjective,
   computeCost,
-  travelCost,
-  overloadCost,
-  mismatchCost,
-  imbalanceCost,
 } from "./objective";
 
 export { buildBaselineAssignment } from "./baseline";
 
-export { optimize } from "./annealing";
+export {
+  optimize,
+  optimizeWithAnnealing,
+  optimizeWithAnnealingResult,
+} from "./annealing";

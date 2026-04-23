@@ -1,89 +1,75 @@
-/**
- * Manual smoke test — run with:
- *   npx tsx src/optimizer/smoke-test.ts
- *
- * Delete this file once you're satisfied with the output.
- */
-
-import { optimize, buildBaselineAssignment, isFeasible } from "./index";
-import type { Patient, Hospital } from "./types";
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
+import {
+  buildBaselineAssignment,
+  computeObjective,
+  isValidAssignment,
+  optimizeWithAnnealingResult,
+} from "./index";
+import type { Hospital, Patient } from "./types";
 
 const hospitals: Hospital[] = [
   {
     id: "hospitalA",
-    name: "Downtown General",
-    edCapacity: 10, edOccupied: 8,   // nearly full ED
-    icuCapacity: 5,  icuOccupied: 2,
-    isTraumaCapable: true,
-    isDiverted: false,
+    staffedEdBeds: 2,
+    staffedIcuBeds: 1,
+    traumaCapable: true,
+    divert: false,
   },
   {
     id: "hospitalB",
-    name: "North Regional",
-    edCapacity: 15, edOccupied: 5,   // lots of ED room
-    icuCapacity: 4,  icuOccupied: 3,
-    isTraumaCapable: false,
-    isDiverted: false,
+    staffedEdBeds: 4,
+    staffedIcuBeds: 1,
+    traumaCapable: false,
+    divert: false,
   },
   {
     id: "hospitalC",
-    name: "South Medical",
-    edCapacity: 12, edOccupied: 2,
-    icuCapacity: 0,  icuOccupied: 0, // no ICU
-    isTraumaCapable: false,
-    isDiverted: true,                // on diversion
+    staffedEdBeds: 3,
+    staffedIcuBeds: 0,
+    traumaCapable: false,
+    divert: true,
   },
 ];
 
 const patients: Patient[] = [
-  // Should land on hospitalA or hospitalB (C is diverted)
-  { id: "p1", careType: "ed",  requiresTrauma: false, originZone: "downtown" },
-  // Trauma — only hospitalA is eligible
-  { id: "p2", careType: "ed",  requiresTrauma: true,  originZone: "northZone" },
-  // ICU — hospitalA or hospitalB (C has no ICU); C also diverted
-  { id: "p3", careType: "icu", requiresTrauma: false, originZone: "southZone" },
-  // ED from southZone — hospitalB cheapest after C is ruled out
-  { id: "p4", careType: "ed",  requiresTrauma: false, originZone: "southZone" },
-  // Another ED to stress balance
-  { id: "p5", careType: "ed",  requiresTrauma: false, originZone: "northZone" },
+  { id: "p1", acuity: "moderate", maxTravelMinutes: 25 },
+  { id: "p2", acuity: "trauma", maxTravelMinutes: 30 },
+  { id: "p3", acuity: "icu", maxTravelMinutes: 35 },
+  { id: "p4", acuity: "low", maxTravelMinutes: 20 },
 ];
 
-// ---------------------------------------------------------------------------
-// Run
-// ---------------------------------------------------------------------------
+const travelTimes: Record<string, number> = {
+  "p1:hospitalA": 7,
+  "p1:hospitalB": 15,
+  "p1:hospitalC": 22,
+  "p2:hospitalA": 18,
+  "p2:hospitalB": 10,
+  "p2:hospitalC": 12,
+  "p3:hospitalA": 20,
+  "p3:hospitalB": 14,
+  "p3:hospitalC": 9,
+  "p4:hospitalA": 20,
+  "p4:hospitalB": 14,
+  "p4:hospitalC": 9,
+};
 
-console.log("=== Baseline ===");
 const baseline = buildBaselineAssignment(patients, hospitals);
-console.log("Assignment:", baseline);
-console.log("Feasible:", isFeasible(patients, hospitals, baseline));
+const optimized = optimizeWithAnnealingResult({
+  patients,
+  hospitals,
+  travelTimes,
+  iterations: 1_000,
+});
 
-console.log("\n=== Optimizer ===");
-const result = optimize(patients, hospitals);
-console.log("Assignment:", result.assignment);
-console.log("Total cost:", result.totalCost.toFixed(2));
-console.log("Iterations:", result.iterations);
-console.log("Feasible:", isFeasible(patients, hospitals, result.assignment));
-
-// Spot-check hard constraints
-const traumaHospital = result.assignment["p2"];
+console.log("Baseline:", baseline);
 console.log(
-  "\np2 (trauma) → ", traumaHospital,
-  traumaHospital === "hospitalA" ? "✓ correct" : "✗ WRONG — must be hospitalA"
+  "Baseline score:",
+  computeObjective({ assignment: baseline, patients, hospitals, travelTimes }),
 );
+console.log("Baseline valid:", isValidAssignment(baseline, patients, hospitals));
 
-const icuHospital = result.assignment["p3"];
-const icuOk = icuHospital === "hospitalA" || icuHospital === "hospitalB";
+console.log("Optimized:", optimized.assignment);
+console.log("Optimized score:", optimized.score);
 console.log(
-  "p3 (ICU)    → ", icuHospital,
-  icuOk ? "✓ correct" : "✗ WRONG — hospitalC has no ICU"
-);
-
-const p1Hospital = result.assignment["p1"];
-console.log(
-  "p1 (ED)     → ", p1Hospital,
-  p1Hospital !== "hospitalC" ? "✓ not diverted" : "✗ WRONG — hospitalC is diverted"
+  "Optimized valid:",
+  isValidAssignment(optimized.assignment, patients, hospitals),
 );
