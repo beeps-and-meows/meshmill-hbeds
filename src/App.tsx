@@ -671,7 +671,7 @@ export default function App() {
               Facility operations view
             </div>
             <h1>HBEDS Operational Platform</h1>
-            <div className="header-powered">Powered by MeshMill&apos;s M.A.R.I.O. Interoperability Engine</div>
+            <div className="header-powered">Powered by MeshMill&apos;s patent-pending M.A.R.I.O. Engine</div>
             <p className="subtitle header-tagline">
               Own-hospital operations with controlled cross-facility placement awareness for
               transfer, intake, and surge decision support.
