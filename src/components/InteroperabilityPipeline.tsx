@@ -7,7 +7,7 @@ export function InteroperabilityPipeline() {
         <div>
           <h3>
             <ServerCog size={18} />
-            Interoperability Pipeline
+            Operational Interoperability Pipeline
           </h3>
           <p>
             A vertical slice of how hospital systems send data, how M.A.R.I.O. normalizes and
