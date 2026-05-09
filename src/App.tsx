@@ -744,7 +744,6 @@ export default function App() {
               aria-label="Toggle color mode"
             >
               {theme === 'dark' ? <SunMedium size={16} /> : <Moon size={16} />}
-              <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
             </button>
 
             <button className="secondary-btn" type="button" onClick={() => setIsAuthenticated(false)}>
@@ -1165,7 +1164,6 @@ export default function App() {
             aria-label="Toggle color mode"
           >
             {theme === 'dark' ? <SunMedium size={16} /> : <Moon size={16} />}
-            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
           </button>
 
           <button className="secondary-btn" type="button" onClick={handleExport}>
