@@ -6,6 +6,7 @@ import {
   Building2,
   CheckCircle2,
   Clock3,
+  Cpu,
   Moon,
   RefreshCw,
   ShieldCheck,
@@ -21,6 +22,7 @@ import { IncidentCoordination } from './components/IncidentCoordination';
 import { InteroperabilityFeedHealth } from './components/InteroperabilityFeedHealth';
 import { InteroperabilityPipeline } from './components/InteroperabilityPipeline';
 import { ScenarioSimulation } from './components/ScenarioSimulation';
+import { PatientOptimizer } from './components/PatientOptimizer';
 
 import { alerts, emsMetrics, hospitals, type BedType } from './lib/data';
 import { useApiData } from './hooks/useApiData';
@@ -590,11 +592,13 @@ export default function App() {
   }, [filteredHospitals, scenario]);
 
   const chartPoints = useMemo(() => {
-    if (scenario === 'incident') return [88, 84, 79, 73, 68, 64, 61];
-    if (scenario === 'surge') return [90, 87, 81, 76, 72, 69, 66];
-    if (scenario === 'degraded') return [91, 89, 85, 83, 80, 78, 76];
-    return [92, 90, 88, 86, 84, 83, 82];
-  }, [scenario]);
+    const basePct = apiStateTotals?.availablePct ?? statewideTotals.availablePct;
+    const declinePerHour = scenario === 'incident' ? 4.5 : scenario === 'surge' ? 3.5 : scenario === 'degraded' ? 2 : 1;
+    return Array.from({ length: 7 }, (_, i) => {
+      const pct = Math.max(3, basePct - i * declinePerHour);
+      return Math.round((pct / 100) * 130);
+    });
+  }, [apiStateTotals, statewideTotals.availablePct, scenario]);
 
   // ── Effective values: prefer API, fall back to static ─────────────────────
 
@@ -624,6 +628,26 @@ export default function App() {
       alert.detail.includes(selectedFacility.name.split(' ')[0]) ||
       alert.level !== 'info'
   );
+
+  function handleExport() {
+    const rows = [
+      ['Facility', 'Region', 'Status', 'Staffed Beds', 'Available Beds', 'Utilization %', 'Ambulance Queue', 'EMS Wall Time (min)', 'Trauma Level'],
+      ...filteredHospitals.map((h) => {
+        const staffed = h.beds.reduce((s, b) => s + b.staffed, 0);
+        const available = h.beds.reduce((s, b) => s + b.available, 0);
+        const util = staffed ? Math.round(((staffed - available) / staffed) * 100) : 0;
+        return [h.name, h.region, h.status, staffed, available, `${util}%`, h.ambulanceQueue, h.emsWallTimeMinutes, h.traumaLevel];
+      }),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hbeds-summary-${scenario}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   if (!isAuthenticated) {
     return (
@@ -1063,6 +1087,31 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {(scenario === 'surge' || scenario === 'incident' || scenario === 'degraded') && (
+        <div className={`scenario-alert-banner scenario-alert-banner--${scenario}`}>
+          <TriangleAlert size={16} />
+          {scenario === 'surge' && (
+            <span>
+              <strong>SURGE ACTIVE</strong> —{' '}
+              {filteredHospitals.filter((h) => h.status === 'Surge' || h.status === 'Internal Disaster').length} facilities
+              at elevated capacity. EMS offload delays elevated across the network.
+            </span>
+          )}
+          {scenario === 'incident' && (
+            <span>
+              <strong>INCIDENT COMMAND ACTIVE</strong> — Disaster protocol engaged.{' '}
+              {filteredHospitals.filter((h) => h.status === 'Internal Disaster').length} facilities
+              in internal disaster mode. Alternate care sites available for routing.
+            </span>
+          )}
+          {scenario === 'degraded' && (
+            <span>
+              <strong>DEGRADED OPERATIONS</strong> — Feed validation delays detected. Data latency
+              elevated; some facility reports may be incomplete.
+            </span>
+          )}
+        </div>
+      )}
       <section className={`state-ribbon ribbon-${ribbonStatus.state.toLowerCase()}`}>
         <div className="state-ribbon-top">
           <StatusPill tone={getOperationalTone(ribbonStatus.state)}>{ribbonStatus.state}</StatusPill>
@@ -1119,7 +1168,7 @@ export default function App() {
             <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
           </button>
 
-          <button className="secondary-btn" type="button">
+          <button className="secondary-btn" type="button" onClick={handleExport}>
             Export summary
           </button>
 
@@ -1851,6 +1900,19 @@ export default function App() {
         <div className="intelligence-grid intelligence-grid-single">
           <IncidentCoordination scenario={scenario} />
         </div>
+      </section>
+
+      <section className="operational-intelligence">
+        <div className="section-head">
+          <div>
+            <h3>
+              <Cpu size={18} />
+              Patient Routing Optimizer
+            </h3>
+            <p>AI-driven patient-to-hospital assignment using simulated annealing across the current facility network.</p>
+          </div>
+        </div>
+        <PatientOptimizer hospitals={filteredHospitals} scenario={scenario} />
       </section>
 
       <div className="backup-tools">

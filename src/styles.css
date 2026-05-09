@@ -1646,6 +1646,135 @@ select {
   }
 }
 
+/* ── Scenario alert banner ─────────────────────────────────────────────────── */
+
+.scenario-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  margin-bottom: 18px;
+  border: 1px solid transparent;
+}
+
+.scenario-alert-banner--surge {
+  background: rgba(255, 180, 77, 0.12);
+  border-color: rgba(255, 180, 77, 0.35);
+  color: var(--amber);
+}
+
+.scenario-alert-banner--incident {
+  background: rgba(255, 95, 95, 0.12);
+  border-color: rgba(255, 95, 95, 0.35);
+  color: var(--red);
+}
+
+.scenario-alert-banner--degraded {
+  background: rgba(83, 163, 255, 0.10);
+  border-color: rgba(83, 163, 255, 0.25);
+  color: var(--blue);
+}
+
+.scenario-alert-banner svg {
+  flex-shrink: 0;
+}
+
+/* ── Patient optimizer ─────────────────────────────────────────────────────── */
+
+.optimizer-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.optimizer-count-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.optimizer-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.optimizer-slider {
+  flex: 1;
+  min-width: 160px;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.optimizer-slider:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.optimizer-count-badge {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 36px;
+  text-align: right;
+}
+
+.optimizer-btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.optimizer-progress {
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.optimizer-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.83rem;
+  color: var(--muted);
+}
+
+.optimizer-progress-val {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.optimizer-progress-track {
+  height: 6px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.optimizer-progress-fill {
+  height: 100%;
+  background: var(--blue);
+  border-radius: 999px;
+  transition: width 60ms linear;
+}
+
+.optimizer-summary {
+  margin-bottom: 0;
+}
 
 /* Width balancing refinements */
 .left-stack,
