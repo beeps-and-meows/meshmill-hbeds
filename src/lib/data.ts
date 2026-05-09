@@ -18,6 +18,25 @@ export interface BedInventory {
   occupied: number;
 }
 
+export interface RespiratoryAgeGroup {
+  pediatric: number;
+  adult: number;
+  senior: number;
+}
+
+export interface RespiratoryDiseaseData {
+  currentPatients: RespiratoryAgeGroup;
+  newAdmissions: RespiratoryAgeGroup;
+}
+
+export interface RespiratoryData {
+  covid19: RespiratoryDiseaseData;
+  influenza: RespiratoryDiseaseData;
+  rsv: RespiratoryDiseaseData;
+  reportingWindow: string;
+  nhsnStatus: 'submitted' | 'pending' | 'failed';
+}
+
 export interface HospitalRecord {
   id: string;
   name: string;
@@ -35,6 +54,7 @@ export interface HospitalRecord {
   ambulanceQueue: number;
   notes: string;
   beds: BedInventory[];
+  respiratory: RespiratoryData;
 }
 
 export interface EmsMetric {
@@ -135,6 +155,22 @@ export const hospitals: HospitalRecord[] = [
       { type: 'Burn', staffed: 10, available: 1, occupied: 9 },
       { type: 'Isolation', staffed: 20, available: 2, occupied: 18 },
     ],
+    respiratory: {
+      reportingWindow: '2026-03-14T12:00:00',
+      nhsnStatus: 'submitted',
+      covid19: {
+        currentPatients: { pediatric: 3, adult: 21, senior: 28 },
+        newAdmissions:   { pediatric: 1, adult:  6, senior:  8 },
+      },
+      influenza: {
+        currentPatients: { pediatric: 7, adult: 14, senior: 22 },
+        newAdmissions:   { pediatric: 3, adult:  4, senior:  6 },
+      },
+      rsv: {
+        currentPatients: { pediatric: 14, adult: 4, senior:  7 },
+        newAdmissions:   { pediatric:  5, adult: 1, senior:  2 },
+      },
+    },
   },
   {
     id: 'sf-general',
@@ -163,6 +199,22 @@ export const hospitals: HospitalRecord[] = [
       { type: 'Burn', staffed: 8, available: 1, occupied: 7 },
       { type: 'Isolation', staffed: 22, available: 1, occupied: 21 },
     ],
+    respiratory: {
+      reportingWindow: '2026-03-14T12:00:00',
+      nhsnStatus: 'submitted',
+      covid19: {
+        currentPatients: { pediatric: 2, adult: 19, senior: 24 },
+        newAdmissions:   { pediatric: 0, adult:  5, senior:  7 },
+      },
+      influenza: {
+        currentPatients: { pediatric: 5, adult: 11, senior: 18 },
+        newAdmissions:   { pediatric: 2, adult:  3, senior:  5 },
+      },
+      rsv: {
+        currentPatients: { pediatric:  9, adult: 3, senior: 5 },
+        newAdmissions:   { pediatric:  3, adult: 1, senior: 1 },
+      },
+    },
   },
   {
     id: 'community-regional',
@@ -191,6 +243,22 @@ export const hospitals: HospitalRecord[] = [
       { type: 'Burn', staffed: 4, available: 1, occupied: 3 },
       { type: 'Isolation', staffed: 18, available: 5, occupied: 13 },
     ],
+    respiratory: {
+      reportingWindow: '2026-03-14T12:00:00',
+      nhsnStatus: 'submitted',
+      covid19: {
+        currentPatients: { pediatric: 4, adult: 16, senior: 20 },
+        newAdmissions:   { pediatric: 1, adult:  4, senior:  5 },
+      },
+      influenza: {
+        currentPatients: { pediatric: 9, adult: 10, senior: 15 },
+        newAdmissions:   { pediatric: 4, adult:  2, senior:  3 },
+      },
+      rsv: {
+        currentPatients: { pediatric: 16, adult: 2, senior: 4 },
+        newAdmissions:   { pediatric:  6, adult: 0, senior: 1 },
+      },
+    },
   },
   {
     id: 'cedars',
@@ -219,6 +287,22 @@ export const hospitals: HospitalRecord[] = [
       { type: 'Burn', staffed: 12, available: 2, occupied: 10 },
       { type: 'Isolation', staffed: 26, available: 2, occupied: 24 },
     ],
+    respiratory: {
+      reportingWindow: '2026-03-14T12:00:00',
+      nhsnStatus: 'submitted',
+      covid19: {
+        currentPatients: { pediatric: 2, adult: 24, senior: 31 },
+        newAdmissions:   { pediatric: 1, adult:  7, senior:  9 },
+      },
+      influenza: {
+        currentPatients: { pediatric: 4, adult: 16, senior: 26 },
+        newAdmissions:   { pediatric: 1, adult:  4, senior:  7 },
+      },
+      rsv: {
+        currentPatients: { pediatric: 8, adult: 2, senior:  8 },
+        newAdmissions:   { pediatric: 3, adult: 0, senior:  2 },
+      },
+    },
   },
   {
     id: 'riverside',
@@ -247,6 +331,22 @@ export const hospitals: HospitalRecord[] = [
       { type: 'Burn', staffed: 4, available: 0, occupied: 4 },
       { type: 'Isolation', staffed: 16, available: 6, occupied: 10 },
     ],
+    respiratory: {
+      reportingWindow: '2026-03-14T12:00:00',
+      nhsnStatus: 'submitted',
+      covid19: {
+        currentPatients: { pediatric: 3, adult: 14, senior: 17 },
+        newAdmissions:   { pediatric: 1, adult:  3, senior:  4 },
+      },
+      influenza: {
+        currentPatients: { pediatric: 6, adult:  9, senior: 14 },
+        newAdmissions:   { pediatric: 2, adult:  2, senior:  3 },
+      },
+      rsv: {
+        currentPatients: { pediatric: 11, adult: 2, senior: 3 },
+        newAdmissions:   { pediatric:  4, adult: 0, senior: 1 },
+      },
+    },
   },
   {
     id: 'ucsd',
@@ -275,6 +375,22 @@ export const hospitals: HospitalRecord[] = [
       { type: 'Burn', staffed: 6, available: 1, occupied: 5 },
       { type: 'Isolation', staffed: 18, available: 1, occupied: 17 },
     ],
+    respiratory: {
+      reportingWindow: '2026-03-14T12:00:00',
+      nhsnStatus: 'submitted',
+      covid19: {
+        currentPatients: { pediatric: 2, adult: 17, senior: 22 },
+        newAdmissions:   { pediatric: 0, adult:  5, senior:  6 },
+      },
+      influenza: {
+        currentPatients: { pediatric: 5, adult: 12, senior: 16 },
+        newAdmissions:   { pediatric: 2, adult:  3, senior:  4 },
+      },
+      rsv: {
+        currentPatients: { pediatric: 10, adult: 2, senior: 4 },
+        newAdmissions:   { pediatric:  4, adult: 1, senior: 1 },
+      },
+    },
   },
 ];
 

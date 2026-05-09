@@ -23,6 +23,7 @@ import { InteroperabilityFeedHealth } from './components/InteroperabilityFeedHea
 import { InteroperabilityPipeline } from './components/InteroperabilityPipeline';
 import { ScenarioSimulation } from './components/ScenarioSimulation';
 import { PatientOptimizer } from './components/PatientOptimizer';
+import { RespiratoryReporting } from './components/RespiratoryReporting';
 
 import { alerts, emsMetrics, hospitals, type BedType } from './lib/data';
 import { useApiData } from './hooks/useApiData';
@@ -959,6 +960,8 @@ export default function App() {
               </div>
             </div>
 
+            <RespiratoryReporting facility={selectedFacility} scenario={scenario} />
+
             <div className="panel">
               <div className="section-head">
                 <div>
@@ -1493,6 +1496,8 @@ export default function App() {
           )}
         </div>
       </section>
+
+      <RespiratoryReporting facilities={filteredHospitals} scenario={scenario} />
 
       <InteroperabilityPipeline />
 

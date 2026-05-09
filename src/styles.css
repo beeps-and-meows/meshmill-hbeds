@@ -2392,6 +2392,84 @@ select {
   color: var(--red);
 }
 
+/* ── Respiratory Disease Surveillance panel ─────────────────────────── */
+
+.resp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.resp-col-headers {
+  display: grid;
+  grid-template-columns: 1fr 52px 52px 52px 60px;
+  gap: 0 8px;
+  padding: 6px 12px 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+}
+
+.resp-row-label-spacer {
+  min-width: 0;
+}
+
+.resp-disease-block {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0 6px;
+}
+
+.resp-disease-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  padding: 0 12px 4px;
+  border-left: 3px solid transparent;
+  margin-left: 9px;
+}
+
+.resp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.resp-table td {
+  padding: 3px 8px 3px 12px;
+  font-size: 0.8rem;
+  color: var(--text);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.resp-table td.resp-row-label {
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.76rem;
+  padding-left: 24px;
+  flex: 1;
+}
+
+.resp-table td.resp-total {
+  font-weight: 700;
+  color: var(--text);
+  min-width: 52px;
+}
+
+.resp-footnote {
+  font-size: 0.72rem;
+  color: var(--muted);
+  padding: 8px 12px 2px;
+  margin: 0;
+}
+
+/* status-pill colour aliases used in RespiratoryReporting */
+.tone-green  { background: rgba(34,197,94,0.12);  border: 1px solid rgba(34,197,94,0.3);  color: var(--green); }
+.tone-amber  { background: rgba(245,179,66,0.12); border: 1px solid rgba(245,179,66,0.3); color: var(--amber); }
+.tone-red    { background: rgba(229,72,93,0.12);  border: 1px solid rgba(229,72,93,0.3);  color: var(--red);   }
+
 /* ── Dataset selector row (ScenarioSimulation) ─────────────────────── */
 
 .scenario-dataset-row {
