@@ -334,6 +334,8 @@ h1 {
 
 .demo-inline-select {
   min-width: 200px;
+  max-width: 280px;
+  margin-top: 6px;
 }
 
 .demo-creds > div {

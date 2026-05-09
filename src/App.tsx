@@ -700,6 +700,19 @@ export default function App() {
               Own-hospital operations with controlled cross-facility placement awareness for
               transfer, intake, and surge decision support.
             </p>
+            <label className="demo-inline-select">
+              Facility context
+              <select
+                value={selectedFacilityId}
+                onChange={(e) => setSelectedFacilityId(e.target.value)}
+              >
+                {scenarioHospitals.map((facility) => (
+                  <option key={facility.id} value={facility.id}>
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div className="topbar-actions">
@@ -722,20 +735,6 @@ export default function App() {
                 State Coordination
               </button>
             </div>
-
-            <label className="demo-inline-select">
-              Facility context
-              <select
-                value={selectedFacilityId}
-                onChange={(e) => setSelectedFacilityId(e.target.value)}
-              >
-                {scenarioHospitals.map((facility) => (
-                  <option key={facility.id} value={facility.id}>
-                    {facility.name}
-                  </option>
-                ))}
-              </select>
-            </label>
 
             <button
               className="theme-toggle"
