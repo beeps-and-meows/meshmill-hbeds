@@ -1,4 +1,6 @@
-export const API_BASE = 'http://localhost:8000';
+// In production (Vercel) API routes live at /api — same origin, no CORS needed.
+// Locally the Express server runs on port 8000.
+export const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:8000';
 
 // ── Canonical types (match OpenAPI contract) ──────────────────────────────────
 
