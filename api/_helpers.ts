@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { DATASETS } from './_data';
+import { DATASETS } from './_data.js';
 
 type DatasetId = 1 | 2 | 3 | 4;
 

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { json, readBody, preflight } from './_helpers';
+import { json, readBody, preflight } from './_helpers.js';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (preflight(req, res)) return;

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { json, parseQuery, resolveDataset, preflight } from './_helpers';
+import { json, parseQuery, resolveDataset, preflight } from './_helpers.js';
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
   if (preflight(req, res)) return;
